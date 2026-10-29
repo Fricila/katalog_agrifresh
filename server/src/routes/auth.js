@@ -12,7 +12,7 @@ router.post('/login',(req,res) => {
 
     if (!email || !password) {
         return res.status(400).json ({
-            sucsess: false;
+            sucsess: false,
             message: 'Email dan password wajib diisi'
         });
     }
@@ -38,7 +38,7 @@ if (!ismatch) {
 
 //Generate JWT token (expires in 24 haours)
 const token = jwt.sign(
-    { id: admin.id, email: admin.email, name: admin.name },JWT_SECRET
+    { id: admin.id, email: admin.email, name: admin.name },JWT_SECRET,
     {expiresIn: '24h'}
 );    
     
@@ -48,9 +48,9 @@ return res.json({
     message: 'Login berhasil',
     token,
     user:{
-        id:admin.id
-        name:admin.name
-        email:admin.email
+        id:admin.id,
+        name:admin.name,
+        email:admin.email,
     }
 });
 
