@@ -1,0 +1,58 @@
+{
+    "settings": {
+        "storeName": "Toko Agri Fresh",
+        "tagline": "Sayuran & Buah Segar Siap Antar Setiap Hari",
+        "phone": "6285777435992",
+        "address": "Jl. Langansari No.12, Jakarta",
+        "currency": "Rp",
+        "activeWhatsApp": true
+    },
+"admin": {
+    "id": "admin-1",
+    "name": "Owner Toko Agri Fresh",
+    "email": "admin@katalogwa.com",
+    "password": "_"
+},
+"categories": [
+    {
+        "id": "cat-1",
+        "name": "Sayuran",
+        "slug": "sayuran"
+    },
+    {
+        "id": "cat-2",
+        "name": "Buah",
+        "slug": "buah"
+    },
+    {
+        "id": "cat-3",
+        "name": "Camilan",
+        "slug": "camilan"
+    }
+],
+"products": [
+    {
+        "id": "proud-1",
+        "name": "Pakcoy Toko Agri Fresh",
+        "categoryId": "cat-1",
+        "categoryName": "Sayuran",
+        "price": 28000,
+        "stockStatus": "Tersedia",
+        "description": "Pakcoy segar dan fresh di petik langsung dari kebun.",
+        "image": "_",
+        "createdAt": "2026-10-19T15:57:55.665Z"
+    },
+    {
+        "id": "proud-2",
+        "name": "Mangga Manis Toko Agri Fresh",
+        "categoryId": "cat-1",
+        "categoryName": "Buah",
+        "price": 32000,
+        "stockStatus": "Tersedia",
+        "description": "Mangga harumanis dan legit tanpa pemanis.",
+        "image": "_",
+        "createdAt": "2026-10-19T15:57:55.666Z"
+    }
+]
+
+}
