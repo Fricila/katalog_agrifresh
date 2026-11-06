@@ -20,9 +20,9 @@ router.post('/', authenticateToken, (req,res) => {
         return res.status(400).json({ success: false,message:'Name kategori wajib diisi'});
     }
 
-// Check duplicate const existing = db.getCategories().find(c => c.name.toLowerCase() === name.trim().toLowerCase());
+    const existing = db.getCategories().find(c => c.name.toLowerCase() === name.trim().toLowerCase());
 if (existing) {
-    return res.status(400).json({ success: false, maessage: 'Kategori dengan nama tersebut sudah ada'});
+    return res.status(400).json({ success: false, message: 'Kategori dengan nama tersebut sudah ada'});
 }
 
 try {
@@ -56,7 +56,7 @@ if (!updated) {
 res.json({
     success: true,
     message: 'Kategori berhasil diperbaharui',
-    data: update
+    data: updated
 });
 } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -71,17 +71,17 @@ router.delete('/:id', authenticateToken, (req,res) => {
 if (products.length > 0) {
     return res.status(400).json({
         success: false,
-        message: `Tidak dapat menghapus kategori karena masih memiliki $ {products.length} produk terkait. Hapus atau pindahkan produk terlebih dahulu.`
+        message: `Tidak dapat menghapus kategori karena masih memiliki ${products.length} produk terkait. Hapus atau pindahkan produk terlebih dahulu.`
     });
 }
 
-const deleted = db.deletedCategory(id);
+const deleted = db.deleteCategory(id);
 if (!deleted) {
     return res.status(404).json({ success: false, message: 'Kategori tidak ditemukan'});
 }
 
-req.json({
-    succsess: true,
+res.json({
+    success: true,
     message: 'Kategori berhasil dihapus'
 });
 });

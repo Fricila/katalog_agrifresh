@@ -3,56 +3,133 @@
         "storeName": "Toko Agri Fresh",
         "tagline": "Sayuran & Buah Segar Siap Antar Setiap Hari",
         "phone": "6285777435992",
-        "address": "Jl. Langansari No.12, Jakarta",
+        "address": "Jl langansari Sukabumi",
         "currency": "Rp",
         "activeWhatsApp": true
     },
-"admin": {
-    "id": "admin-1",
-    "name": "Owner Toko Agri Fresh",
-    "email": "admin@katalogwa.com",
-    "password": "_"
-},
-"categories": [
-    {
-        "id": "cat-1",
-        "name": "Sayuran",
-        "slug": "sayuran"
+    "admin": {
+        "id": "admin-1",
+        "name": "Owner Toko Agri Fresh",
+        "email": "admin@katalogwa.com",
+        "password": "_"
     },
+    "categories": [
+        {
+            "id": "cat-1",
+            "name": "Sayuran",
+            "slug": "sayuran"
+        },
+        {
+            "id": "cat-2",
+            "name": "Buah",
+            "slug": "buah"
+        },
+        {
+            "id": "cat-3",
+            "name": "Camilan",
+            "slug": "camilan"
+        }
+    ],
+    "products": [
+        {
+            "id": "proud-1",
+            "name": "Pakcoy Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Sayuran",
+            "price": 10000,
+            "stockStatus": "Tersedia",
+            "description": "Pakcoy segar dan fresh di petik langsung dari kebun.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.665Z"
+        },
+        {
+            "id": "proud-2",
+            "name": "Mangga Manis Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Buah",
+            "price": 20000,
+            "stockStatus": "Tersedia",
+            "description": "Mangga harumanis dan legit tanpa pemanis.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        },
+        {
+            "id": "proud-3",
+            "name": "Tomat Merah Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Buah",
+            "price": 9000,
+            "stockStatus": "Tersedia",
+            "description": "Tomat merah segar dengan rasa manis dan sedikit asam. Cocok untuk sambal, tumisan, dan pelengkap masakan..",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        },
+        {
+            "id": "proud-4",
+            "name": "Jeruk Manis Segar Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Buah",
+            "price": 22000,
+            "stockStatus": "Tersedia",
+            "description": "Jeruk segar pilihan dengan rasa manis dan sedikit asam serta kandungan air yang menyegarkan.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        },
+        {
+            "id": "proud-5",
+            "name": "Pisang Cavendish Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Buah",
+            "price": 17000,
+            "stockStatus": "Tersedia",
+            "description": "Pisang Cavendish dengan tekstur lembut dan rasa manis alami. Cocok untuk camilan sehari-hari.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        },
     {
-        "id": "cat-2",
-        "name": "Buah",
-        "slug": "buah"
-    },
-    {
-        "id": "cat-3",
-        "name": "Camilan",
-        "slug": "camilan"
-    }
-],
-"products": [
-    {
-        "id": "proud-1",
-        "name": "Pakcoy Toko Agri Fresh",
-        "categoryId": "cat-1",
-        "categoryName": "Sayuran",
-        "price": 28000,
-        "stockStatus": "Tersedia",
-        "description": "Pakcoy segar dan fresh di petik langsung dari kebun.",
-        "image": "_",
-        "createdAt": "2026-10-19T15:57:55.665Z"
-    },
-    {
-        "id": "proud-2",
-        "name": "Mangga Manis Toko Agri Fresh",
-        "categoryId": "cat-1",
-        "categoryName": "Buah",
-        "price": 32000,
-        "stockStatus": "Tersedia",
-        "description": "Mangga harumanis dan legit tanpa pemanis.",
-        "image": "_",
-        "createdAt": "2026-10-19T15:57:55.666Z"
-    }
-]
-
+            "id": "proud-6",
+            "name": "Paket Sayur Sop Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Sayuran",
+            "price": 10000,
+            "stockStatus": "Tersedia",
+            "description": "Paket sayuran segar berisi wortel, kentang, kol, dan buncis. Praktis untuk membuat hidangan sayur sop.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        },
+        {
+            "id": "proud-7",
+            "name": "Brokoli Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Sayuran",
+            "price": 12000,
+            "stockStatus": "Tersedia",
+            "description": "Brokoli segar dengan kuntum hijau cantik dan tekstur renyah. Cocok untuk tumisan, sup, dan menu sayuran keluarga.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        },
+        {
+            "id": "proud-8",
+            "name": "Salad Buah Segar Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Buah",
+            "price": 25000,
+            "stockStatus": "Tersedia",
+            "description": "Kangkung segar pilihan dengan daun hijau alami dan batang renyah. Dipanen untuk menjaga kesegarannya, cocok diolah menjadi tumis kangkung, cah kangkung, maupun menu sayuran favorit keluarga.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        },
+        {
+            "id": "proud-9",
+            "name": "Kangkung Ceria Toko Agri Fresh",
+            "categoryId": "cat-1",
+            "categoryName": "Sayuran",
+            "price": 5000,
+            "stockStatus": "Tersedia",
+            "description": "Mangga harumanis dan legit tanpa pemanis.",
+            "image": "_",
+            "createdAt": "2026-10-19T15:57:55.666Z"
+        }  
+        
+    ]
 }

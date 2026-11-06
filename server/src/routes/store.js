@@ -22,11 +22,13 @@ router.put('/', authenticateToken, (req, res) => {
         storeName: storeName || current.storeName,
         tagline: tagline || current.tagline,
         phone: phone ? phone.replace(/[^0-9]/g,'') : current.phone,
-        address: address !== undefinded ? address : current.address
+        address: address !== undefined ? address : current.address
     });
 
     res.json({
-        succsess: true,
+        success: true,
         message: 'pengaturan toko berhasil disimpan'
     });
 });
+
+export default router;

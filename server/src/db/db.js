@@ -39,6 +39,7 @@ class SqliteDatabase {
             stock_status TEXT NOT NULL DEFAULT 'Tersedia',
             description TEXT,
             image TEXT,
+            unit TEXT DEFAULT 'kg',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
@@ -54,7 +55,7 @@ class SqliteDatabase {
 
     // 4. Admin Authentication Table
     this.db.exec(`
-            CREAT TABLE IF NOT EXISTS admins (
+            CREATE TABLE IF NOT EXISTS admins (
               id TEXT PRIMARY KEY, 
               name TEXT NOT NULL, 
               email TEXT NOT NULL UNIQUE,
@@ -68,6 +69,11 @@ class SqliteDatabase {
           CREATE INDEX IF NOT EXISTS idx_products_cat ON products(category_id);
           CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock_status);
         `);
+
+    try {
+      this.db.exec("ALTER TABLE products ADD COLUMN unit TEXT DEFAULT 'kg';");
+    } catch (e) {}
+
   }
 
   seedInitialData() {
@@ -276,7 +282,8 @@ class SqliteDatabase {
             p.price, 
             p.stock_status AS stockStatus, 
             p.description, 
-            p.image, 
+            p.image,
+            p.unit,
             p.created_at AS createdAt,
             p.updated_at AS updatedAt
           FROM products p
@@ -317,6 +324,7 @@ class SqliteDatabase {
             p.stock_status AS stockStatus, 
             p.description, 
             p.image, 
+            p.unit, 
             p.created_at AS createdAt,
             p.updated_at AS updatedAt
           FROM products p
@@ -331,11 +339,12 @@ class SqliteDatabase {
     const stockStatus = productData.stockStatus || 'Tersedia';
     const description = productData.description || '';
     const image = productData.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
+    const unit = productData.unit || 'kg';
 
     this.db.prepare(`
-          INSERT INTO products (id, name, category_id, price, stock_status, description, image)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(id, productData.name, productData.categoryId, price, stockStatus, description, image);
+          INSERT INTO products (id, name, category_id, price, stock_status, description, image, unit)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, productData.name, productData.categoryId, price, stockStatus, description, image, unit);
 
     return this.getProductById(id);
   }
@@ -350,12 +359,13 @@ class SqliteDatabase {
     const stockStatus = productData.stockStatus !== undefined ? productData.stockStatus : current.stockStatus;
     const description = productData.description !== undefined ? productData.description : current.description;
     const image = productData.image !== undefined ? productData.image : current.image;
+    const unit = productData.unit !== undefined ? productData.unit : current.unit;
 
     this.db.prepare(`
           UPDATE products 
-          SET name = ?, category_id = ?, price = ?, stock_status = ?, description = ?, image = ?, updated_at = CURRENT_TIMESTAMP
+          SET name = ?, category_id = ?, price = ?, stock_status = ?, description = ?, image = ?, unit = ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(name, categoryId, price, stockStatus, description, image, id);
+        `).run(name, categoryId, price, stockStatus, description, image, unit, id);
 
     return this.getProductById(id);
   }
