@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1793605182783",
+    "timestamp": 1793605182783,
+    "method": "POST",
+    "url": "http://localhost:5000/api/products",
+    "statusCode": 0,
+    "statusText": "Error: connect ECONNREFUSED 127.0.0.1:5000; connect ECONNREFUSED ::1:5000",
+    "timeMs": 25,
+    "sizeBytes": 0,
+    "collectionName": "",
+    "requestName": "Untitled Request"
+  },
+  {
+    "id": "1793605150402",
+    "timestamp": 1793605150402,
+    "method": "POST",
+    "url": "http://localhost5000/api/products",
+    "statusCode": 0,
+    "statusText": "Error: getaddrinfo ENOTFOUND localhost5000",
+    "timeMs": 2720,
+    "sizeBytes": 0,
+    "collectionName": "",
+    "requestName": "Untitled Request"
+  },
+  {
+    "id": "1793604813945",
+    "timestamp": 1793604813945,
+    "method": "POST",
+    "url": "http://localhost5000/api/products",
+    "statusCode": 0,
+    "statusText": "Error: getaddrinfo ENOTFOUND localhost5000",
+    "timeMs": 2709,
+    "sizeBytes": 0,
+    "collectionName": "",
+    "requestName": "Untitled Request"
+  }
+]
