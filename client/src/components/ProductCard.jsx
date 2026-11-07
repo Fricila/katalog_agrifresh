@@ -9,6 +9,7 @@ import {
   XCircle,
   Eye
 } from 'lucide-react';
+import { getImageUrl, DEFAULT_PRODUCT_IMAGE } from '../utils/imageHelper';
 
 export const ProductCard = ({
   product,
@@ -31,11 +32,7 @@ export const ProductCard = ({
     }).format(Number(number) || 0);
   };
 
-  // Safe fallback image for fresh grocery
-  const fallbackImage = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80';
-  const hasValidImage = product.image && product.image !== '-' && product.image !== '_' && typeof product.image === 'string' && product.image.trim() !== '';
-  const cleanImage = hasValidImage && product.image.startsWith('uploads/') ? `/${product.image}` : product.image;
-  const displayImage = hasValidImage ? cleanImage : fallbackImage;
+  const displayImage = getImageUrl(product.image);
   const productName = product.name || product.Name || 'Produk Segar';
 
   // Derive unit (e.g. kg, ikat, bowl, porsi, sisir)
@@ -69,7 +66,11 @@ export const ProductCard = ({
           {isAvailable ? (
             <>
               <CheckCircle2 size={12} />
-              <span>Tersedia</span>
+              <span>
+                {product.stockQuantity !== undefined && Number(product.stockQuantity) > 0
+                  ? `Stok: ${product.stockQuantity}`
+                  : 'Tersedia'}
+              </span>
             </>
           ) : (
             <>
@@ -106,7 +107,7 @@ export const ProductCard = ({
           loading="lazy"
           onError={(e) => {
             e.target.onerror = null;
-            e.target.src = fallbackImage;
+            e.target.src = DEFAULT_PRODUCT_IMAGE;
           }}
         />
 

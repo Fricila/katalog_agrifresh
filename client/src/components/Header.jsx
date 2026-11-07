@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import brandLogo from '../assets/AgriFresh.png';
 import {
   Sprout,
   ShoppingBag,
@@ -77,9 +78,11 @@ export const Header = ({
           }}
           title={`${storeName} - ${storeTagline}`}
         >
-          <div className="brand-icon">
-            <Sprout size={24} />
-          </div>
+          <img
+            src={brandLogo}
+            alt={storeName}
+            className="brand-logo-img"
+          />
           <div className="brand-info">
             <span className="brand-name">
               {storeName}
@@ -281,9 +284,11 @@ export const Header = ({
             {/* Mobile Drawer Header */}
             <div className="mobile-nav-header">
               <div className="brand-group" style={{ cursor: 'default' }}>
-                <div className="brand-icon" style={{ width: '36px', height: '36px' }}>
-                  <Sprout size={20} />
-                </div>
+                <img
+                  src={brandLogo}
+                  alt={storeName}
+                  className="brand-logo-img brand-logo-img-mobile"
+                />
                 <div className="brand-info">
                   <span className="brand-name" style={{ fontSize: '1.15rem' }}>{storeName}</span>
                   <span className="brand-tag" style={{ fontSize: '0.68rem' }}>{storeTagline}</span>

@@ -78,7 +78,7 @@ router.get('/:id', (req, res) => {
 
 // POST create product (admin protected)
 router.post('/', authenticateToken, uploadSinglePhoto, (req, res) => {
-    const { name, categoryId, price, stockStatus, description, imageUrl, unit } = req.body;
+    const { name, categoryId, price, stockStatus, stockQuantity, description, imageUrl, unit } = req.body;
 
     if (!name || !name.trim()) {
         return res.status(400).json({ success: false, message: 'Nama produk wajib diisi' });
@@ -95,11 +95,15 @@ router.post('/', authenticateToken, uploadSinglePhoto, (req, res) => {
         finalImage = `/uploads/${req.file.filename}`;
     }
 
+    const parsedQty = stockQuantity !== undefined && stockQuantity !== '' ? Number(stockQuantity) : 10;
+    const resolvedStatus = stockStatus || (parsedQty > 0 ? 'Tersedia' : 'Habis');
+
     const newProduct = db.addProduct({
         name: name.trim(),
         categoryId,
         price: Number(price),
-        stockStatus: stockStatus || 'Tersedia',
+        stockStatus: resolvedStatus,
+        stockQuantity: isNaN(parsedQty) ? 10 : Math.max(0, parsedQty),
         description: description ? description.trim() : '',
         image: finalImage || '',
         unit: unit ? unit.trim() : 'kg'
@@ -115,7 +119,7 @@ router.post('/', authenticateToken, uploadSinglePhoto, (req, res) => {
 // PUT update product (admin protected)
 router.put('/:id', authenticateToken, uploadSinglePhoto, (req, res) => {
     const { id } = req.params;
-    const { name, categoryId, price, stockStatus, description, imageUrl, unit } = req.body;
+    const { name, categoryId, price, stockStatus, stockQuantity, description, imageUrl, unit } = req.body;
 
     const existing = db.getProductById(id);
     if (!existing) {
@@ -127,6 +131,15 @@ router.put('/:id', authenticateToken, uploadSinglePhoto, (req, res) => {
     if (categoryId !== undefined) updatePayload.categoryId = categoryId;
     if (price !== undefined && !isNaN(price)) updatePayload.price = Number(price);
     if (stockStatus !== undefined) updatePayload.stockStatus = stockStatus;
+    if (stockQuantity !== undefined && stockQuantity !== '') {
+        const parsed = Number(stockQuantity);
+        if (!isNaN(parsed)) {
+            updatePayload.stockQuantity = Math.max(0, parsed);
+            if (stockStatus === undefined) {
+                updatePayload.stockStatus = parsed > 0 ? 'Tersedia' : 'Habis';
+            }
+        }
+    }
     if (description !== undefined) updatePayload.description = description.trim();
     if (unit !== undefined) updatePayload.unit = unit.trim();
 

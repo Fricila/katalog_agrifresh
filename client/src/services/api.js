@@ -210,6 +210,34 @@ export const deleteProduct = async (id) => {
 };
 
 // ============================================
+// ORDERS (RIWAYAT PESANAN)
+// ============================================
+
+export const fetchOrders = async () => {
+  return apiRequest('/orders');
+};
+
+export const createOrder = async (orderData) => {
+  return apiRequest('/orders', {
+    method: 'POST',
+    body: JSON.stringify(orderData)
+  });
+};
+
+export const updateOrderStatus = async (id, status) => {
+  return apiRequest(`/orders/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
+};
+
+export const deleteOrder = async (id) => {
+  return apiRequest(`/orders/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  });
+};
+
+// ============================================
 // AUTHENTICATION
 // ============================================
 

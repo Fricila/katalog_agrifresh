@@ -1,4 +1,5 @@
 import React from 'react';
+import brandLogo from '../assets/AgriFresh.png';
 import {
   Sprout,
   MapPin,
@@ -24,21 +25,18 @@ export const Footer = ({ storeSettings }) => {
         <div className="footer-grid">
           {/* Col 1: Brand & Desc */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.85rem' }}>
-              <div
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
+              <img
+                src={brandLogo}
+                alt={storeName}
                 style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'var(--sage-green)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#FFFFFF'
+                  height: '40px',
+                  width: 'auto',
+                  maxHeight: '40px',
+                  objectFit: 'contain',
+                  borderRadius: '8px'
                 }}
-              >
-                <Sprout size={20} />
-              </div>
+              />
               <h3 className="footer-brand-title">
                 {storeName}
               </h3>

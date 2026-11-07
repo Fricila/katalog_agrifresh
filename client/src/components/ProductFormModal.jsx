@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, Image as ImageIcon, Save, AlertCircle, Check } from 'lucide-react';
+import { getImageUrl, DEFAULT_PRODUCT_IMAGE } from '../utils/imageHelper';
 
 const PRESET_GROCERY_IMAGES = [
   { label: 'Pakcoy', url: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80' },
@@ -16,6 +17,7 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
   const [categoryId, setCategoryId] = useState('');
   const [price, setPrice] = useState('');
   const [unit, setUnit] = useState('kg');
+  const [stockQuantity, setStockQuantity] = useState('10');
   const [stockStatus, setStockStatus] = useState('Tersedia');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -32,9 +34,14 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
       setCategoryId(editingProduct.categoryId || editingProduct.category_id || (categories[0]?.id || 'cat-1'));
       setPrice(editingProduct.price !== undefined ? String(editingProduct.price) : '');
       setUnit(editingProduct.unit || 'kg');
-      setStockStatus(editingProduct.stockStatus || editingProduct.stock_status || 'Tersedia');
+      const initialQty = editingProduct.stockQuantity !== undefined 
+        ? String(editingProduct.stockQuantity) 
+        : (editingProduct.stock_quantity !== undefined ? String(editingProduct.stock_quantity) : '10');
+      setStockQuantity(initialQty);
+      const initialStatus = editingProduct.stockStatus || editingProduct.stock_status || (Number(initialQty) > 0 ? 'Tersedia' : 'Habis');
+      setStockStatus(initialStatus);
       setDescription(editingProduct.description || '');
-      const existingImg = editingProduct.image || editingProduct.imageUrl || '';
+      const existingImg = getImageUrl(editingProduct.image || editingProduct.imageUrl || '');
       setImageUrl(existingImg);
       setPreviewSrc(existingImg);
       setSelectedFile(null);
@@ -43,9 +50,10 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
       setCategoryId(categories[0]?.id || 'cat-1');
       setPrice('');
       setUnit('kg');
+      setStockQuantity('10');
       setStockStatus('Tersedia');
       setDescription('');
-      const defaultImg = PRESET_GROCERY_IMAGES[0]?.url || '';
+      const defaultImg = PRESET_GROCERY_IMAGES[0]?.url || DEFAULT_PRODUCT_IMAGE;
       setImageUrl(defaultImg);
       setPreviewSrc(defaultImg);
       setSelectedFile(null);
@@ -101,8 +109,15 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
       return;
     }
 
+    const parsedQty = stockQuantity !== '' ? Number(stockQuantity) : 0;
+    if (isNaN(parsedQty) || parsedQty < 0) {
+      setErrorMsg('Jumlah stok harus berupa angka minimal 0.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const finalStockStatus = stockStatus || (parsedQty > 0 ? 'Tersedia' : 'Habis');
       let payload;
       if (selectedFile) {
         payload = new FormData();
@@ -110,19 +125,19 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
         payload.append('categoryId', categoryId);
         payload.append('price', String(price));
         payload.append('unit', unit || 'kg');
-        payload.append('stockStatus', stockStatus);
+        payload.append('stockQuantity', String(parsedQty));
+        payload.append('stockStatus', finalStockStatus);
         payload.append('description', description.trim());
         payload.append('photo', selectedFile);
-        if (previewSrc) {
-          payload.append('imageUrl', previewSrc);
-        }
+        // Do not pass base64 previewSrc as imageUrl so backend uses uploaded file
       } else {
         payload = {
           name: name.trim(),
           categoryId,
           price: Number(price),
           unit: unit || 'kg',
-          stockStatus,
+          stockQuantity: parsedQty,
+          stockStatus: finalStockStatus,
           description: description.trim(),
           imageUrl: previewSrc || imageUrl
         };
@@ -323,21 +338,47 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">
-                <span>Harga (Rp)</span>
-                <span className="text-danger">*</span>
-              </label>
-              <input
-                type="number"
-                className="form-input"
-                placeholder="cth: 15000"
-                min="0"
-                step="500"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-              />
+            <div className="form-row-2">
+              <div className="form-group">
+                <label className="form-label">
+                  <span>Harga (Rp)</span>
+                  <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="cth: 15000"
+                  min="0"
+                  step="500"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  <span>Jumlah Stok ({unit})</span>
+                  <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="cth: 25"
+                  min="0"
+                  value={stockQuantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStockQuantity(val);
+                    if (Number(val) === 0) {
+                      setStockStatus('Habis');
+                    } else if (Number(val) > 0 && stockStatus === 'Habis') {
+                      setStockStatus('Tersedia');
+                    }
+                  }}
+                  required
+                />
+              </div>
             </div>
 
             {/* Stock Status Selector */}
@@ -352,7 +393,12 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
                     name="stockStatus"
                     value="Tersedia"
                     checked={stockStatus === 'Tersedia'}
-                    onChange={() => setStockStatus('Tersedia')}
+                    onChange={() => {
+                      setStockStatus('Tersedia');
+                      if (Number(stockQuantity) <= 0) {
+                        setStockQuantity('1');
+                      }
+                    }}
                   />
                   <div>
                     <strong>Tersedia</strong>
@@ -366,7 +412,10 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
                     name="stockStatus"
                     value="Habis"
                     checked={stockStatus === 'Habis'}
-                    onChange={() => setStockStatus('Habis')}
+                    onChange={() => {
+                      setStockStatus('Habis');
+                      setStockQuantity('0');
+                    }}
                   />
                   <div>
                     <strong>Stok Habis</strong>

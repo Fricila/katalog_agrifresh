@@ -37,6 +37,7 @@ class SqliteDatabase {
             category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
             price INTEGER NOT NULL,
             stock_status TEXT NOT NULL DEFAULT 'Tersedia',
+            stock_quantity INTEGER NOT NULL DEFAULT 10,
             description TEXT,
             image TEXT,
             unit TEXT DEFAULT 'kg',
@@ -64,14 +65,39 @@ class SqliteDatabase {
             );
             `);
 
+    // 5. Orders Table (Riwayat Pesanan Masuk)
+    this.db.exec(`
+            CREATE TABLE IF NOT EXISTS orders (
+              id TEXT PRIMARY KEY,
+              customer_name TEXT NOT NULL,
+              customer_phone TEXT,
+              customer_address TEXT,
+              customer_notes TEXT,
+              items_json TEXT NOT NULL,
+              total_price INTEGER NOT NULL DEFAULT 0,
+              status TEXT NOT NULL DEFAULT 'Menunggu Konfirmasi',
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+          `);
+
     // Indexes
     this.db.exec(`
           CREATE INDEX IF NOT EXISTS idx_products_cat ON products(category_id);
           CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock_status);
+          CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
         `);
 
     try {
       this.db.exec("ALTER TABLE products ADD COLUMN unit TEXT DEFAULT 'kg';");
+    } catch (e) {}
+
+    try {
+      this.db.exec("ALTER TABLE products ADD COLUMN stock_quantity INTEGER NOT NULL DEFAULT 10;");
+    } catch (e) {}
+
+    try {
+      this.db.exec("ALTER TABLE orders ADD COLUMN stock_deducted INTEGER NOT NULL DEFAULT 0;");
     } catch (e) {}
 
   }
@@ -306,6 +332,7 @@ class SqliteDatabase {
             c.name AS categoryName, 
             p.price, 
             p.stock_status AS stockStatus, 
+            p.stock_quantity AS stockQuantity,
             p.description, 
             p.image,
             p.unit,
@@ -347,6 +374,7 @@ class SqliteDatabase {
             c.name AS categoryName, 
             p.price, 
             p.stock_status AS stockStatus, 
+            p.stock_quantity AS stockQuantity,
             p.description, 
             p.image, 
             p.unit, 
@@ -361,15 +389,18 @@ class SqliteDatabase {
   addProduct(productData) {
     const id = `prod-${Date.now()}`;
     const price = Number(productData.price) || 0;
-    const stockStatus = productData.stockStatus || 'Tersedia';
+    const stockQuantity = productData.stockQuantity !== undefined && !isNaN(productData.stockQuantity)
+      ? Math.max(0, Number(productData.stockQuantity))
+      : 10;
+    const stockStatus = productData.stockStatus || (stockQuantity > 0 ? 'Tersedia' : 'Habis');
     const description = productData.description || '';
     const image = productData.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
     const unit = productData.unit || 'kg';
 
     this.db.prepare(`
-          INSERT INTO products (id, name, category_id, price, stock_status, description, image, unit)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(id, productData.name, productData.categoryId, price, stockStatus, description, image, unit);
+          INSERT INTO products (id, name, category_id, price, stock_status, stock_quantity, description, image, unit)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, productData.name, productData.categoryId, price, stockStatus, stockQuantity, description, image, unit);
 
     return this.getProductById(id);
   }
@@ -381,16 +412,21 @@ class SqliteDatabase {
     const name = productData.name !== undefined ? productData.name : current.name;
     const categoryId = productData.categoryId !== undefined ? productData.categoryId : current.categoryId;
     const price = productData.price !== undefined ? Number(productData.price) : current.price;
-    const stockStatus = productData.stockStatus !== undefined ? productData.stockStatus : current.stockStatus;
+    const stockQuantity = productData.stockQuantity !== undefined && !isNaN(productData.stockQuantity)
+      ? Math.max(0, Number(productData.stockQuantity))
+      : (current.stockQuantity !== undefined ? current.stockQuantity : 10);
+    const stockStatus = productData.stockStatus !== undefined
+      ? productData.stockStatus
+      : (stockQuantity === 0 ? 'Habis' : current.stockStatus);
     const description = productData.description !== undefined ? productData.description : current.description;
     const image = productData.image !== undefined ? productData.image : current.image;
     const unit = productData.unit !== undefined ? productData.unit : current.unit;
 
     this.db.prepare(`
           UPDATE products 
-          SET name = ?, category_id = ?, price = ?, stock_status = ?, description = ?, image = ?, unit = ?, updated_at = CURRENT_TIMESTAMP
+          SET name = ?, category_id = ?, price = ?, stock_status = ?, stock_quantity = ?, description = ?, image = ?, unit = ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(name, categoryId, price, stockStatus, description, image, unit, id);
+        `).run(name, categoryId, price, stockStatus, stockQuantity, description, image, unit, id);
 
     return this.getProductById(id);
   }
@@ -399,18 +435,204 @@ class SqliteDatabase {
     const product = this.getProductById(id);
     if (!product) return null;
 
-    const newStock = product.stockStatus === 'Tersedia' ? 'Habis' : 'Tersedia';
+    const newStatus = product.stockStatus === 'Tersedia' ? 'Habis' : 'Tersedia';
+    // If toggling to Tersedia but quantity is 0, give it at least 1
+    const newQty = (newStatus === 'Tersedia' && Number(product.stockQuantity || 0) <= 0)
+      ? 10
+      : (newStatus === 'Habis' ? 0 : Number(product.stockQuantity || 10));
+
     this.db.prepare(`
           UPDATE products 
-          SET stock_status = ?, updated_at = CURRENT_TIMESTAMP 
+          SET stock_status = ?, stock_quantity = ?, updated_at = CURRENT_TIMESTAMP 
           WHERE id = ?
-        `).run(newStock, id);
+        `).run(newStatus, newQty, id);
 
     return this.getProductById(id);
   }
 
   deleteProduct(id) {
     const res = this.db.prepare('DELETE FROM products WHERE id = ?').run(id);
+    return res.changes > 0;
+  }
+
+  // --- Orders SQL Operations ---
+  getOrders() {
+    const rows = this.db.prepare(`
+      SELECT 
+        id, 
+        customer_name AS customerName, 
+        customer_phone AS customerPhone, 
+        customer_address AS customerAddress, 
+        customer_notes AS customerNotes, 
+        items_json AS itemsJson, 
+        total_price AS totalPrice, 
+        status, 
+        stock_deducted AS stockDeducted,
+        created_at AS createdAt, 
+        updated_at AS updatedAt,
+        customer_name AS customer_name,
+        customer_phone AS customer_phone,
+        customer_address AS customer_address,
+        customer_notes AS customer_notes,
+        total_price AS total_price,
+        created_at AS created_at,
+        updated_at AS updated_at
+      FROM orders
+      ORDER BY created_at DESC
+    `).all();
+
+    return rows.map((r) => {
+      let items = [];
+      try {
+        items = JSON.parse(r.itemsJson || '[]');
+      } catch (_) {
+        items = [];
+      }
+      return {
+        ...r,
+        items
+      };
+    });
+  }
+
+  getOrderById(id) {
+    const r = this.db.prepare(`
+      SELECT 
+        id, 
+        customer_name AS customerName, 
+        customer_phone AS customerPhone, 
+        customer_address AS customerAddress, 
+        customer_notes AS customerNotes, 
+        items_json AS itemsJson, 
+        total_price AS totalPrice, 
+        status, 
+        stock_deducted AS stockDeducted,
+        created_at AS createdAt, 
+        updated_at AS updatedAt,
+        customer_name AS customer_name,
+        customer_phone AS customer_phone,
+        customer_address AS customer_address,
+        customer_notes AS customer_notes,
+        total_price AS total_price,
+        created_at AS created_at,
+        updated_at AS updated_at
+      FROM orders
+      WHERE id = ?
+    `).get(id);
+
+    if (!r) return null;
+
+    let items = [];
+    try {
+      items = JSON.parse(r.itemsJson || '[]');
+    } catch (_) {
+      items = [];
+    }
+    return {
+      ...r,
+      items
+    };
+  }
+
+  createOrder({ customerName, customerPhone, customerAddress, customerNotes, items, totalPrice }) {
+    const id = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const itemsJson = typeof items === 'string' ? items : JSON.stringify(items || []);
+    const total = Number(totalPrice) || 0;
+    const nowIso = new Date().toISOString();
+
+    this.db.prepare(`
+      INSERT INTO orders (id, customer_name, customer_phone, customer_address, customer_notes, items_json, total_price, status, stock_deducted, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu Konfirmasi', 0, ?, ?)
+    `).run(id, customerName || 'Pelanggan', customerPhone || '', customerAddress || '', customerNotes || '', itemsJson, total, nowIso, nowIso);
+
+    return this.getOrderById(id);
+  }
+
+  updateOrderStatus(id, status) {
+    const currentOrder = this.getOrderById(id);
+    if (!currentOrder) return null;
+
+    // Handle stock deduction when order is marked 'Selesai'
+    if (status === 'Selesai' && !currentOrder.stockDeducted) {
+      if (Array.isArray(currentOrder.items)) {
+        for (const it of currentOrder.items) {
+          const prodId = it.productId || it.id;
+          const qty = Number(it.quantity) || 1;
+          if (prodId) {
+            let prod = this.getProductById(prodId);
+            // Fallback: if prodId doesn't match by ID directly, try finding by name
+            if (!prod && it.productName) {
+              prod = this.db.prepare('SELECT * FROM products WHERE LOWER(name) = LOWER(?)').get(it.productName);
+              if (prod) prod = this.getProductById(prod.id);
+            }
+
+            if (prod) {
+              const currentStock = prod.stockQuantity !== undefined ? Number(prod.stockQuantity) : 10;
+              const newStock = Math.max(0, currentStock - qty);
+              const newStatus = newStock === 0 ? 'Habis' : 'Tersedia';
+
+              this.db.prepare(`
+                UPDATE products 
+                SET stock_quantity = ?, stock_status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `).run(newStock, newStatus, prod.id);
+            }
+          }
+        }
+      }
+
+      this.db.prepare(`
+        UPDATE orders
+        SET status = ?, stock_deducted = 1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(status, id);
+    } 
+    // Handle stock restoration if order was 'Selesai' and changed back to non-completed or 'Dibatalkan'
+    else if (currentOrder.status === 'Selesai' && status !== 'Selesai' && currentOrder.stockDeducted) {
+      if (Array.isArray(currentOrder.items)) {
+        for (const it of currentOrder.items) {
+          const prodId = it.productId || it.id;
+          const qty = Number(it.quantity) || 1;
+          if (prodId) {
+            let prod = this.getProductById(prodId);
+            if (!prod && it.productName) {
+              prod = this.db.prepare('SELECT * FROM products WHERE LOWER(name) = LOWER(?)').get(it.productName);
+              if (prod) prod = this.getProductById(prod.id);
+            }
+
+            if (prod) {
+              const currentStock = prod.stockQuantity !== undefined ? Number(prod.stockQuantity) : 0;
+              const newStock = currentStock + qty;
+              const newStatus = newStock > 0 ? 'Tersedia' : 'Habis';
+
+              this.db.prepare(`
+                UPDATE products 
+                SET stock_quantity = ?, stock_status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `).run(newStock, newStatus, prod.id);
+            }
+          }
+        }
+      }
+
+      this.db.prepare(`
+        UPDATE orders
+        SET status = ?, stock_deducted = 0, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(status, id);
+    } else {
+      this.db.prepare(`
+        UPDATE orders
+        SET status = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(status, id);
+    }
+
+    return this.getOrderById(id);
+  }
+
+  deleteOrder(id) {
+    const res = this.db.prepare('DELETE FROM orders WHERE id = ?').run(id);
     return res.changes > 0;
   }
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import brandLogo from '../assets/AgriFresh.png';
 import { X, Lock, Mail, AlertCircle, ArrowRight, ShieldCheck, KeyRound } from 'lucide-react';
 import { loginAdmin, setAuthToken } from '../services/api';
 
@@ -53,10 +54,17 @@ export const AdminLoginModal = ({ isOpen, onClose, onSuccess }) => {
             >
                 {/* Header */}
                 <div className="modal-header">
-                    <div className="modal-title-group" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        <div className="admin-lock-icon">
-                            <Lock size={18} color="#ffffff" />
-                        </div>
+                    <div className="modal-title-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <img
+                            src={brandLogo}
+                            alt="AgriFresh Logo"
+                            style={{
+                                width: '38px',
+                                height: '38px',
+                                objectFit: 'contain',
+                                borderRadius: '8px'
+                            }}
+                        />
                         <div>
                             <h2 className="modal-title">Login Admin Store</h2>
                             <p className="modal-subtitle">Kelola produk & pengaturan toko</p>

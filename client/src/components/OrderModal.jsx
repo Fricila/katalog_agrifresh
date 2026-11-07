@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { X, MessageCircle, AlertCircle, Send, Check } from 'lucide-react';
+import { X, MessageCircle, AlertCircle, Send, Check, ShoppingBag, Plus, Minus } from 'lucide-react';
+import { getImageUrl, DEFAULT_PRODUCT_IMAGE } from '../utils/imageHelper';
+import { createOrder } from '../services/api';
 
-export const OrderModal = ({ product, storeSettings, onClose }) => {
+export const OrderModal = ({ product, storeSettings, onClose, onAddToCart }) => {
     const [customerName, setCustomerName] = useState('');
+    const [customerPhone, setCustomerPhone] = useState('');
+    const [customerAddress, setCustomerAddress] = useState('');
     const [customerNotes, setCustomerNotes] = useState('');
     const [quantity, setQuantity] = useState(1);
     const [showError, setShowError] = useState(false);
+    const [isAddedToCartFeedback, setIsAddedToCartFeedback] = useState(false);
 
     if (!product) return null;
 
-    const fallbackImage = 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=400&q=80';
-    const hasValidImage = product.image && product.image !== '-' && product.image !== '_' && product.image.trim() !== '';
-    const displayImage = hasValidImage ? product.image : fallbackImage;
+    const displayImage = getImageUrl(product.image);
     const productName = product.name || product.Name || 'Produk';
 
     const storeName = storeSettings?.storeName || 'Toko Agri Fresh';
@@ -36,37 +39,86 @@ export const OrderModal = ({ product, storeSettings, onClose }) => {
     // Build formatted WhatsApp message
     const generateMessage = () => {
         const nameStr = customerName.trim() || '[Nama Pemesan]';
-        const notesStr = customerNotes.trim() ? customerNotes.trim() : '-';
+        const phoneStr = customerPhone.trim() || '-';
+        const addrStr = customerAddress.trim() || '-';
+        const notesStr = customerNotes.trim() || '-';
 
-        return `Halo ${storeName}, saya ${nameStr} mau pesan:
-- Produk: ${productName}
-- Jumlah: ${quantity} ${productUnit}
-- Total: ${formatRupiah(totalPrice)}
-- Catatan / Alamat: ${notesStr}
+        return `Halo ${storeName}! Saya ingin memesan:
 
-Mohon diproses ya, terima kasih!`;
+🛒 *RINCIAN PESANAN:*
+- *Produk:* ${productName}
+- *Jumlah:* ${quantity} ${productUnit}
+- *Harga Satuan:* ${formatRupiah(product.price)}
+- *Total Pembayaran:* ${formatRupiah(totalPrice)}
+
+👤 *DATA PENGIRIMAN:*
+- *Nama Pemesan:* ${nameStr}
+- *No. WhatsApp / HP:* ${phoneStr}
+- *Alamat Pengiriman:* ${addrStr}
+- *Catatan:* ${notesStr}
+
+Mohon konfirmasi ketersediaan & ongkos kirimnya. Terima kasih!`;
     };
 
-    // Handle WhatsApp submission with validation check
+    // Handle adding to cart from modal
+    const handleAddDirectToCart = () => {
+        if (onAddToCart) {
+            onAddToCart(product, quantity);
+            setIsAddedToCartFeedback(true);
+            setTimeout(() => {
+                setIsAddedToCartFeedback(false);
+                onClose();
+            }, 1000);
+        }
+    };
+
+    // Handle WhatsApp submission with validation check & save to DB
     const handleSubmitOrder = (e) => {
         e.preventDefault();
 
-        // Decision: Is Form Complete?
-        if (!customerName.trim()) {
+        // Validate name and address
+        if (!customerName.trim() || !customerAddress.trim()) {
             setShowError(true);
-            const input = document.getElementById('customer-name-input');
+            const input = !customerName.trim()
+                ? document.getElementById('customer-name-input')
+                : document.getElementById('customer-address-input');
             if (input) input.focus();
             return;
         }
 
         setShowError(false);
 
+        // Save order to backend DB for Admin Order History
+        try {
+            const orderItems = [{
+                productId: product.id,
+                productName: productName,
+                quantity: quantity,
+                unit: productUnit,
+                price: product.price || 0,
+                subtotal: totalPrice
+            }];
+
+            createOrder({
+                customerName: customerName.trim(),
+                customerPhone: customerPhone.trim(),
+                customerAddress: customerAddress.trim(),
+                customerNotes: customerNotes.trim(),
+                items: orderItems,
+                totalPrice: totalPrice
+            }).catch((err) => {
+                console.warn('Gagal menyimpan pesanan langsung ke server:', err);
+            });
+        } catch (err) {
+            console.warn('Error saat menyiapkan pesanan:', err);
+        }
+
         // Final clean message for redirect
         const finalMessage = generateMessage();
         const encodedText = encodeURIComponent(finalMessage);
         const waUrl = `https://wa.me/${storePhone}?text=${encodedText}`;
 
-        // System Action: Redirect user directly to wa.me URL with pre-filled text
+        // Redirect user directly to WhatsApp
         window.open(waUrl, '_blank', 'noopener,noreferrer');
         onClose();
     };
@@ -113,6 +165,7 @@ Mohon diproses ya, terima kasih!`;
                                             type="button"
                                             className="qty-btn"
                                             onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                            disabled={quantity <= 1}
                                         >
                                             -
                                         </button>
@@ -120,12 +173,24 @@ Mohon diproses ya, terima kasih!`;
                                         <button
                                             type="button"
                                             className="qty-btn"
-                                            onClick={() => setQuantity(quantity + 1)}
+                                            onClick={() => {
+                                                const maxStock = product.stockQuantity !== undefined ? Number(product.stockQuantity) : null;
+                                                if (maxStock !== null && maxStock > 0 && quantity >= maxStock) {
+                                                    return;
+                                                }
+                                                setQuantity(quantity + 1);
+                                            }}
+                                            disabled={product.stockQuantity !== undefined && Number(product.stockQuantity) > 0 && quantity >= Number(product.stockQuantity)}
                                         >
                                             +
                                         </button>
                                     </div>
                                 </div>
+                                {product.stockQuantity !== undefined && (
+                                    <div style={{ fontSize: '0.78rem', color: Number(product.stockQuantity) > 0 ? '#16A34A' : '#DC2626', marginTop: '0.35rem', fontWeight: 600 }}>
+                                        {Number(product.stockQuantity) > 0 ? `Sisa stok tersedia: ${product.stockQuantity} ${productUnit}` : 'Stok habis'}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -135,11 +200,11 @@ Mohon diproses ya, terima kasih!`;
                             <span className="total-amount">{formatRupiah(totalPrice)}</span>
                         </div>
 
-                        {/* Validation Error Alert if Name missing */}
+                        {/* Validation Error Alert if Name or Address missing */}
                         {showError && (
                             <div className="form-alert-error animate-fade-in" id="name-validation-alert">
                                 <AlertCircle size={18} />
-                                <span>Nama pemesan wajib diisi untuk memesan via WhatsApp.</span>
+                                <span>Nama dan Alamat pengiriman wajib diisi untuk memesan.</span>
                             </div>
                         )}
 
@@ -157,23 +222,58 @@ Mohon diproses ya, terima kasih!`;
                                 value={customerName}
                                 onChange={(e) => {
                                     setCustomerName(e.target.value);
-                                    if (e.target.value.trim()) setShowError(false);
+                                    if (e.target.value.trim() && customerAddress.trim()) setShowError(false);
                                 }}
                                 autoFocus
                             />
                         </div>
 
-                        {/* Input: Notes / Delivery Address */}
+                        {/* Input: Customer Phone */}
                         <div className="form-group">
-                            <label className="form-label" htmlFor="customer-notes-input">
-                                <span>Catatan Khusus / Alamat Pengiriman</span>
+                            <label className="form-label" htmlFor="customer-phone-input">
+                                <span>No. WhatsApp / HP</span>
                                 <span className="text-muted" style={{ fontWeight: 400 }}>(Opsional)</span>
                             </label>
+                            <input
+                                id="customer-phone-input"
+                                type="tel"
+                                className="form-input"
+                                placeholder="Contoh: 08123456789"
+                                value={customerPhone}
+                                onChange={(e) => setCustomerPhone(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Input: Delivery Address */}
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="customer-address-input">
+                                <span>Alamat Pengiriman Lengkap</span>
+                                <span className="text-danger">*</span>
+                            </label>
                             <textarea
-                                id="customer-notes-input"
+                                id="customer-address-input"
                                 rows="2"
-                                className="form-textarea"
-                                placeholder="Contoh: Tidak pakai pedas, antar ke Ruang Meeting Lt. 3"
+                                className={`form-textarea ${showError && !customerAddress.trim() ? 'error' : ''}`}
+                                placeholder="Contoh: Jl. Anggrek No. 12, RT 02/RW 04, Kelurahan Sukasari"
+                                value={customerAddress}
+                                onChange={(e) => {
+                                    setCustomerAddress(e.target.value);
+                                    if (customerName.trim() && e.target.value.trim()) setShowError(false);
+                                }}
+                            />
+                        </div>
+
+                        {/* Input: Special Notes */}
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="customer-notes-input">
+                                <span>Catatan Tambahan</span>
+                                <span className="text-muted" style={{ fontWeight: 400 }}>(Opsional)</span>
+                            </label>
+                            <input
+                                id="customer-notes-input"
+                                type="text"
+                                className="form-input"
+                                placeholder="Contoh: Pilih yang matang, kirim sebelum jam 12 siang"
                                 value={customerNotes}
                                 onChange={(e) => setCustomerNotes(e.target.value)}
                             />
@@ -192,18 +292,39 @@ Mohon diproses ya, terima kasih!`;
                     </div>
 
                     {/* Modal Footer Actions */}
-                    <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
-                            Batal
-                        </button>
-                        <button
-                            type="submit"
-                            className="btn btn-wa"
-                            id="submit-wa-order-btn"
-                        >
-                            <Send size={16} />
-                            <span>Kirim Pesanan ke WhatsApp</span>
-                        </button>
+                    <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {onAddToCart ? (
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={handleAddDirectToCart}
+                                title="Masukkan ke keranjang belanja"
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                            >
+                                <ShoppingBag size={16} />
+                                <span>{isAddedToCartFeedback ? '✓ Masuk Keranjang' : '+ Ke Keranjang'}</span>
+                            </button>
+                        ) : (
+                            <button type="button" className="btn btn-secondary" onClick={onClose}>
+                                Batal
+                            </button>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {onAddToCart && (
+                                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                                    Tutup
+                                </button>
+                            )}
+                            <button
+                                type="submit"
+                                className="btn btn-wa"
+                                id="submit-wa-order-btn"
+                            >
+                                <Send size={16} />
+                                <span>Checkout Langsung</span>
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

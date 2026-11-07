@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import brandLogo from '../assets/AgriFresh.png';
 import {
     Package,
     Layers,
@@ -22,11 +23,15 @@ import {
     ExternalLink,
     ChevronRight,
     ShieldCheck,
-    RefreshCw
+    RefreshCw,
+    ClipboardList,
+    Eye
 } from 'lucide-react';
 import { ProductFormModal } from './ProductFormModal';
 import { ConfirmModal } from './ConfirmModal';
 import { ProfileModal } from './ProfileModal';
+import { OrderDetailModal } from './OrderDetailModal';
+import { getImageUrl, DEFAULT_PRODUCT_IMAGE } from '../utils/imageHelper';
 import {
     fetchProducts,
     fetchCategories,
@@ -39,7 +44,10 @@ import {
     deleteCategory,
     updateStoreSettings,
     fetchAdminProfile,
-    updateAdminProfile
+    updateAdminProfile,
+    fetchOrders,
+    updateOrderStatus,
+    deleteOrder
 } from '../services/api';
 
 // Fallback seed data in case API or parent state is not yet populated
@@ -264,6 +272,71 @@ export const AdminDashboard = ({
     const [deletingCategory, setDeletingCategory] = useState(null);
     const [catError, setCatError] = useState('');
 
+    // Orders states
+    const [orders, setOrders] = useState([]);
+    const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [deletingOrder, setDeletingOrder] = useState(null);
+
+    const loadOrdersData = async () => {
+        setIsLoadingOrders(true);
+        try {
+            const res = await fetchOrders();
+            const data = res?.data || res;
+            if (Array.isArray(data)) {
+                setOrders(data);
+            }
+        } catch (err) {
+            console.warn('Gagal memuat pesanan:', err.message);
+        } finally {
+            setIsLoadingOrders(false);
+        }
+    };
+
+    useEffect(() => {
+        loadOrdersData();
+    }, []);
+
+    const handleUpdateOrderStatus = async (orderId, newStatus) => {
+        const prevOrder = orders.find((o) => o.id === orderId);
+        const wasSelesai = prevOrder?.status === 'Selesai';
+        const isSelesai = newStatus === 'Selesai';
+
+        setOrders((prev) =>
+            prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        );
+        if (selectedOrder && selectedOrder.id === orderId) {
+            setSelectedOrder((prev) => ({ ...prev, status: newStatus }));
+        }
+        try {
+            await updateOrderStatus(orderId, newStatus);
+            // Refresh product catalog stock if order status changed to or from 'Selesai'
+            if (isSelesai || wasSelesai) {
+                await fetchDataFromApi();
+                if (typeof onRefreshData === 'function') {
+                    await onRefreshData();
+                }
+            }
+        } catch (err) {
+            console.error('Gagal memperbarui status pesanan:', err);
+            loadOrdersData();
+        }
+    };
+
+    const handleDeleteOrder = async (orderId) => {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        setDeletingOrder(null);
+        if (selectedOrder && selectedOrder.id === orderId) {
+            setSelectedOrder(null);
+        }
+        try {
+            await deleteOrder(orderId);
+        } catch (err) {
+            console.error('Gagal menghapus pesanan:', err);
+            loadOrdersData();
+        }
+    };
+
     // Settings states
     const [settingsForm, setSettingsForm] = useState({
         storeName: storeSettings?.storeName || 'AgriFresh',
@@ -356,6 +429,9 @@ export const AdminDashboard = ({
             const catId = p.categoryId || p.category_id || p.category || '';
             const matchedCategory = activeCategories.find((c) => String(c.id) === String(catId));
             const catName = p.categoryName || p.category_name || (matchedCategory ? matchedCategory.name : 'Organik');
+            const stockQty = p.stockQuantity !== undefined 
+                ? Number(p.stockQuantity) 
+                : (p.stock_quantity !== undefined ? Number(p.stock_quantity) : 10);
 
             return {
                 ...p,
@@ -364,7 +440,8 @@ export const AdminDashboard = ({
                 categoryId: catId,
                 categoryName: catName,
                 price: Number(p.price) || 0,
-                stockStatus: p.stockStatus || p.stock_status || 'Tersedia',
+                stockQuantity: isNaN(stockQty) ? 0 : stockQty,
+                stockStatus: p.stockStatus || p.stock_status || (stockQty > 0 ? 'Tersedia' : 'Habis'),
                 image: p.image || p.imageUrl || p.photo || '',
                 unit: p.unit || 'kg',
                 description: p.description || p.desc || ''
@@ -418,6 +495,8 @@ export const AdminDashboard = ({
         const formPrice = rawPrice !== undefined && rawPrice !== null ? Number(rawPrice) : undefined;
         const formCategoryId = isFormData ? payload.get('categoryId') : payload.categoryId;
         const formUnit = isFormData ? payload.get('unit') : payload.unit;
+        const rawQty = isFormData ? payload.get('stockQuantity') : payload.stockQuantity;
+        const formStockQuantity = rawQty !== undefined && rawQty !== null && rawQty !== '' ? Number(rawQty) : undefined;
         const formStockStatus = isFormData ? payload.get('stockStatus') : payload.stockStatus;
         const formDescription = isFormData ? payload.get('description') : payload.description;
         const formImage = isFormData ? (payload.get('imageUrl') || '') : (payload.imageUrl || '');
@@ -432,7 +511,9 @@ export const AdminDashboard = ({
                 savedProduct = res?.data || res;
             }
         } catch (err) {
-            console.warn('Gagal menyimpan produk ke server:', err.message);
+            console.error('Gagal menyimpan produk ke server:', err.message);
+            alert(`Gagal menyimpan produk ke database: ${err.message}`);
+            return;
         }
 
         const resolvedCatName = activeCategories.find((c) => String(c.id) === String(formCategoryId))?.name || 'Organik';
@@ -442,6 +523,10 @@ export const AdminDashboard = ({
             const finalImage = (savedProduct && savedProduct.image)
                 ? savedProduct.image
                 : (formImage || '');
+
+            const resolvedQty = formStockQuantity !== undefined && !isNaN(formStockQuantity)
+                ? formStockQuantity
+                : (savedProduct?.stockQuantity !== undefined ? Number(savedProduct.stockQuantity) : 0);
 
             setCurrentProducts((prev) => {
                 const list = prev && prev.length > 0 ? prev : activeProducts;
@@ -455,7 +540,8 @@ export const AdminDashboard = ({
                             categoryId: formCategoryId || savedProduct?.categoryId || p.categoryId,
                             categoryName: resolvedCatName || savedProduct?.categoryName || p.categoryName,
                             unit: formUnit || savedProduct?.unit || p.unit,
-                            stockStatus: formStockStatus || savedProduct?.stockStatus || p.stockStatus,
+                            stockQuantity: resolvedQty,
+                            stockStatus: formStockStatus || savedProduct?.stockStatus || (resolvedQty > 0 ? 'Tersedia' : 'Habis'),
                             description: formDescription !== undefined ? formDescription : (savedProduct?.description ?? p.description),
                             image: finalImage || p.image
                         };
@@ -466,7 +552,11 @@ export const AdminDashboard = ({
         } else {
             const finalImage = (savedProduct && savedProduct.image)
                 ? savedProduct.image
-                : (formImage || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80');
+                : (formImage || DEFAULT_PRODUCT_IMAGE);
+
+            const resolvedQty = formStockQuantity !== undefined && !isNaN(formStockQuantity)
+                ? formStockQuantity
+                : (savedProduct?.stockQuantity !== undefined ? Number(savedProduct.stockQuantity) : 0);
 
             const newProd = {
                 id: savedProduct?.id || `prod-${Date.now()}`,
@@ -475,7 +565,8 @@ export const AdminDashboard = ({
                 categoryName: resolvedCatName,
                 price: formPrice !== undefined && !isNaN(formPrice) ? formPrice : (savedProduct?.price || 0),
                 unit: formUnit || savedProduct?.unit || 'kg',
-                stockStatus: formStockStatus || savedProduct?.stockStatus || 'Tersedia',
+                stockQuantity: resolvedQty,
+                stockStatus: formStockStatus || savedProduct?.stockStatus || (resolvedQty > 0 ? 'Tersedia' : 'Habis'),
                 description: formDescription || savedProduct?.description || '',
                 image: finalImage,
                 ...(savedProduct || {})
@@ -497,14 +588,20 @@ export const AdminDashboard = ({
             return list.map((p) => {
                 if (p.id === id) {
                     const nextStatus = p.stockStatus === 'Tersedia' ? 'Habis' : 'Tersedia';
-                    return { ...p, stockStatus: nextStatus };
+                    const nextQty = nextStatus === 'Tersedia' && Number(p.stockQuantity || 0) <= 0
+                        ? 10
+                        : (nextStatus === 'Habis' ? 0 : Number(p.stockQuantity || 10));
+                    return { ...p, stockStatus: nextStatus, stockQuantity: nextQty };
                 }
                 return p;
             });
         });
 
         try {
-            await toggleProductStock(id);
+            const res = await toggleProductStock(id);
+            if (res && res.data) {
+                setCurrentProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...res.data } : p)));
+            }
         } catch (err) {
             console.warn('Gagal sinkron toggle stok ke server:', err.message);
         }
@@ -654,9 +751,11 @@ export const AdminDashboard = ({
             <aside className={`admin-sidebar ${isSidebarOpenMobile ? 'open' : ''}`}>
                 {/* Sidebar Header / Brand */}
                 <div className="sidebar-brand">
-                    <div className="sidebar-brand-icon">
-                        <ShoppingBag size={22} color="#ffffff" />
-                    </div>
+                    <img
+                        src={brandLogo}
+                        alt="AgriFresh Logo"
+                        className="sidebar-brand-logo-img"
+                    />
                     <div className="sidebar-brand-text">
                         <div className="sidebar-brand-title">{storeSettings?.storeName || 'AgriFresh'}</div>
                         <div className="sidebar-brand-badge">{storeSettings?.tagline || 'Admin Fresh Market'}</div>
@@ -704,6 +803,19 @@ export const AdminDashboard = ({
                         <Layers size={18} />
                         <span className="nav-item-label">Manajemen Kategori</span>
                         <span className="nav-badge-count">{activeCategories.length}</span>
+                    </button>
+
+                    <button
+                        className={`sidebar-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+                        onClick={() => {
+                            setActiveTab('orders');
+                            setIsSidebarOpenMobile(false);
+                        }}
+                        id="sidebar-link-orders"
+                    >
+                        <ClipboardList size={18} />
+                        <span className="nav-item-label">Riwayat Pesanan</span>
+                        <span className="nav-badge-count">{orders.length}</span>
                     </button>
 
                     <button
@@ -783,10 +895,11 @@ export const AdminDashboard = ({
                             <h2 className="viewport-title">
                                 {activeTab === 'products' && 'Manajemen Produk Katalog'}
                                 {activeTab === 'categories' && 'Manajemen Kategori'}
+                                {activeTab === 'orders' && 'Riwayat Pesanan Pelanggan'}
                                 {activeTab === 'settings' && 'Pengaturan Toko & Nomor WhatsApp'}
                             </h2>
                             <span className="viewport-breadcrumb">
-                                Admin Panel / {activeTab === 'products' ? 'Produk' : activeTab === 'categories' ? 'Kategori' : 'Pengaturan'}
+                                Admin Panel / {activeTab === 'products' ? 'Produk' : activeTab === 'categories' ? 'Kategori' : activeTab === 'orders' ? 'Pesanan' : 'Pengaturan'}
                             </span>
                         </div>
                     </div>
@@ -927,6 +1040,7 @@ export const AdminDashboard = ({
                                             <th>Nama & Deskripsi</th>
                                             <th>Kategori</th>
                                             <th>Harga</th>
+                                            <th style={{ textAlign: 'center' }}>Jumlah Stok</th>
                                             <th style={{ textAlign: 'center' }}>Status Stok (Saklar)</th>
                                             <th style={{ textAlign: 'right' }}>Aksi</th>
                                         </tr>
@@ -934,7 +1048,7 @@ export const AdminDashboard = ({
                                     <tbody>
                                         {filteredProducts.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="table-empty-cell" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
+                                                <td colSpan="7" className="table-empty-cell" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                                                         <Package size={40} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
                                                         <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-dark)', fontSize: '1rem' }}>
@@ -969,8 +1083,7 @@ export const AdminDashboard = ({
                                         ) : (
                                             filteredProducts.map((prod) => {
                                                 const isAvailable = (prod.stockStatus || prod.stock_status || '') === 'Tersedia';
-                                                const rawImg = (prod.image && prod.image !== '-' && prod.image !== '_' && typeof prod.image === 'string' && prod.image.trim() !== '') ? prod.image.trim() : '';
-                                                const prodImg = rawImg.startsWith('uploads/') ? `/${rawImg}` : (rawImg || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80');
+                                                const prodImg = getImageUrl(prod.image);
 
                                                 return (
                                                     <tr key={prod.id} className={!isAvailable ? 'row-out-of-stock' : ''}>
@@ -982,7 +1095,7 @@ export const AdminDashboard = ({
                                                                 className="table-product-thumb"
                                                                 onError={(e) => {
                                                                     e.target.onerror = null;
-                                                                    e.target.src = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80';
+                                                                    e.target.src = DEFAULT_PRODUCT_IMAGE;
                                                                 }}
                                                             />
                                                         </td>
@@ -1010,6 +1123,22 @@ export const AdminDashboard = ({
                                                                     / {prod.unit || 'kg'}
                                                                 </span>
                                                             </strong>
+                                                        </td>
+
+                                                        {/* Stock Quantity */}
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'center' }}>
+                                                                <span 
+                                                                    className={`badge ${Number(prod.stockQuantity || 0) <= 0 ? 'badge-danger' : Number(prod.stockQuantity || 0) <= 5 ? 'badge-warning' : 'badge-category'}`}
+                                                                    style={{ 
+                                                                        padding: '0.25rem 0.6rem',
+                                                                        fontWeight: 700,
+                                                                        fontSize: '0.85rem'
+                                                                    }}
+                                                                >
+                                                                    {prod.stockQuantity !== undefined ? prod.stockQuantity : 0} {prod.unit || 'kg'}
+                                                                </span>
+                                                            </div>
                                                         </td>
 
                                                         {/* Toggle Stock Switch */}
@@ -1161,7 +1290,201 @@ export const AdminDashboard = ({
                     )}
 
                     {/* ===========================================================
-              MODULE 3: STORE SETTINGS
+              MODULE 3: ORDER HISTORY (RIWAYAT PESANAN)
+             =========================================================== */}
+                    {activeTab === 'orders' && (
+                        <div className="admin-tab-content animate-fade-in">
+                            <div className="card-box" style={{ width: '100%', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+                                    <div>
+                                        <h3 className="box-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <ClipboardList size={20} color="#16A34A" />
+                                            <span>Riwayat Pesanan Pelanggan</span>
+                                        </h3>
+                                        <p className="box-subtitle">
+                                            Pesanan otomatis tercatat saat pelanggan melakukan checkout via WhatsApp.
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={loadOrdersData}
+                                        disabled={isLoadingOrders}
+                                    >
+                                        <RefreshCw size={14} className={isLoadingOrders ? 'animate-spin' : ''} />
+                                        <span>{isLoadingOrders ? 'Memuat...' : 'Segarkan Pesanan'}</span>
+                                    </button>
+                                </div>
+
+                                {orders.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#64748B' }}>
+                                        <ClipboardList size={48} color="#CBD5E1" style={{ margin: '0 auto 1rem' }} />
+                                        <h4 style={{ color: '#334155', marginBottom: '0.5rem' }}>Belum Ada Pesanan Masuk</h4>
+                                        <p style={{ fontSize: '0.9rem' }}>
+                                            Saat pelanggan mengirim pesanan melalui keranjang belanja WhatsApp, detail pesanan akan otomatis tercatat di sini.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="table-responsive" style={{ overflowX: 'auto' }}>
+                                        <table className="admin-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>No</th>
+                                                    <th>Waktu</th>
+                                                    <th>Nama Pelanggan</th>
+                                                    <th>No. HP / WA</th>
+                                                    <th>Rincian Produk</th>
+                                                    <th>Total</th>
+                                                    <th>Status Pesanan</th>
+                                                    <th style={{ textAlign: 'center' }}>Aksi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {orders.map((ord, idx) => {
+                                                    const orderItems = Array.isArray(ord.items) ? ord.items : [];
+                                                    const itemsCount = orderItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
+                                                    const itemsSummary = orderItems.map((it) => `${it.productName || it.name} (${it.quantity})`).join(', ');
+
+                                                    const getStatusBadge = (st) => {
+                                                        switch (st) {
+                                                            case 'Diproses':
+                                                                return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+                                                            case 'Dikirim':
+                                                                return { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA' };
+                                                            case 'Selesai':
+                                                                return { bg: '#F0FDF4', color: '#15803D', border: '#BBF7D0' };
+                                                            case 'Dibatalkan':
+                                                                return { bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' };
+                                                            default:
+                                                                return { bg: '#FEFCE8', color: '#A16207', border: '#FEF08A' };
+                                                        }
+                                                    };
+                                                    const badgeStyle = getStatusBadge(ord.status);
+
+                                                    const orderDate = ord.createdAt || ord.created_at;
+                                                    let formattedDate = '-';
+                                                    if (orderDate) {
+                                                        try {
+                                                            let normalized = String(orderDate);
+                                                            if (normalized.includes(' ') && !normalized.includes('T')) {
+                                                                normalized = normalized.replace(' ', 'T') + 'Z';
+                                                            }
+                                                            const d = new Date(normalized);
+                                                            if (!isNaN(d.getTime())) {
+                                                                formattedDate = d.toLocaleString('id-ID', {
+                                                                    day: '2-digit',
+                                                                    month: 'short',
+                                                                    year: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                });
+                                                            } else {
+                                                                formattedDate = String(orderDate);
+                                                            }
+                                                        } catch (_) {
+                                                            formattedDate = String(orderDate);
+                                                        }
+                                                    }
+
+                                                    return (
+                                                        <tr key={ord.id}>
+                                                            <td style={{ color: '#64748B', fontWeight: 600 }}>{idx + 1}</td>
+                                                            <td style={{ fontSize: '0.85rem', whiteSpace: 'nowrap', color: '#475569' }}>
+                                                                {formattedDate}
+                                                            </td>
+                                                            <td>
+                                                                <strong style={{ color: '#0F172A', display: 'block' }}>
+                                                                    {ord.customer_name || ord.customerName || '-'}
+                                                                </strong>
+                                                                {(ord.customer_address || ord.customerAddress) && (
+                                                                    <small style={{ color: '#64748B', display: 'block', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                        {ord.customer_address || ord.customerAddress}
+                                                                    </small>
+                                                                )}
+                                                            </td>
+                                                            <td>
+                                                                {ord.customer_phone || ord.customerPhone ? (
+                                                                    <a
+                                                                        href={`https://wa.me/${(ord.customer_phone || ord.customerPhone).replace(/[^0-9]/g, '')}`}
+                                                                        target="_blank"
+                                                                        rel="noreferrer"
+                                                                        style={{ color: '#059669', fontWeight: 600, fontSize: '0.88rem', textDecoration: 'underline' }}
+                                                                    >
+                                                                        {ord.customer_phone || ord.customerPhone}
+                                                                    </a>
+                                                                ) : (
+                                                                    <span style={{ color: '#94A3B8', fontSize: '0.85rem' }}>-</span>
+                                                                )}
+                                                            </td>
+                                                            <td>
+                                                                <div style={{ maxWidth: '220px' }}>
+                                                                    <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#334155' }}>
+                                                                        {itemsCount} Item
+                                                                    </span>
+                                                                    <small style={{ display: 'block', color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                        {itemsSummary || 'Rincian item'}
+                                                                    </small>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ fontWeight: 700, color: '#16A34A', whiteSpace: 'nowrap' }}>
+                                                                {formatRupiah(ord.total_price || ord.totalPrice || 0)}
+                                                            </td>
+                                                            <td>
+                                                                <select
+                                                                    value={ord.status}
+                                                                    onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
+                                                                    style={{
+                                                                        padding: '0.3rem 0.5rem',
+                                                                        borderRadius: '6px',
+                                                                        fontSize: '0.8rem',
+                                                                        fontWeight: 600,
+                                                                        backgroundColor: badgeStyle.bg,
+                                                                        color: badgeStyle.color,
+                                                                        border: `1px solid ${badgeStyle.border}`,
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    <option value="Menunggu Konfirmasi">Menunggu Konfirmasi</option>
+                                                                    <option value="Diproses">Diproses</option>
+                                                                    <option value="Dikirim">Dikirim</option>
+                                                                    <option value="Selesai">Selesai</option>
+                                                                    <option value="Dibatalkan">Dibatalkan</option>
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn-icon"
+                                                                        onClick={() => setSelectedOrder(ord)}
+                                                                        title="Lihat Detail Pesanan"
+                                                                    >
+                                                                        <Eye size={16} color="#0284C7" />
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn-icon btn-icon-danger"
+                                                                        onClick={() => setDeletingOrder(ord)}
+                                                                        title="Hapus Pesanan"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ===========================================================
+              MODULE 4: STORE SETTINGS
              =========================================================== */}
                     {activeTab === 'settings' && (
                         <div className="admin-tab-content animate-fade-in">
@@ -1266,6 +1589,24 @@ export const AdminDashboard = ({
                 onConfirm={handleConfirmDeleteCategory}
                 onCancel={() => setDeletingCategory(null)}
                 confirmText="Hapus Kategori"
+            />
+
+            {/* Confirm Delete Order Modal */}
+            <ConfirmModal
+                isOpen={!!deletingOrder}
+                title="Hapus Pesanan Ini?"
+                message={`Hapus data pesanan dari "${deletingOrder?.customer_name || deletingOrder?.customerName || 'Pelanggan'}" (${deletingOrder?.id})? Tindakan ini tidak dapat dibatalkan.`}
+                onConfirm={() => handleDeleteOrder(deletingOrder.id)}
+                onCancel={() => setDeletingOrder(null)}
+                confirmText="Hapus Pesanan"
+            />
+
+            {/* Order Detail Modal */}
+            <OrderDetailModal
+                order={selectedOrder}
+                onClose={() => setSelectedOrder(null)}
+                onUpdateStatus={handleUpdateOrderStatus}
+                onDelete={(ord) => setDeletingOrder(ord)}
             />
 
             {/* Profile Edit Modal */}

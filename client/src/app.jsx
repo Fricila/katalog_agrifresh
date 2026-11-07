@@ -429,6 +429,7 @@ export function App() {
           product={selectedProductForOrder}
           storeSettings={storeSettings}
           onClose={() => setSelectedProductForOrder(null)}
+          onAddToCart={handleAddToCart}
         />
       )}
 

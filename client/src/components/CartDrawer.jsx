@@ -10,6 +10,8 @@ import {
   ArrowRight,
   Sprout
 } from 'lucide-react';
+import { getImageUrl, DEFAULT_PRODUCT_IMAGE } from '../utils/imageHelper';
+import { createOrder } from '../services/api';
 
 export const CartDrawer = ({
   isOpen,
@@ -21,6 +23,7 @@ export const CartDrawer = ({
   storeSettings
 }) => {
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
   const [showError, setShowError] = useState(false);
@@ -48,11 +51,7 @@ export const CartDrawer = ({
 
   // Fallback image helper
   const getProductImage = (prod) => {
-    const fallbackImage = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80';
-    if (prod.image && prod.image !== '-' && prod.image !== '_' && prod.image.trim() !== '') {
-      return prod.image;
-    }
-    return fallbackImage;
+    return getImageUrl(prod?.image);
   };
 
   const getProductUnit = (prod) => {
@@ -83,6 +82,7 @@ ${itemsList}
 
 👤 *DATA PENGIRIMAN:*
 - *Nama Pemesan:* ${customerName.trim()}
+- *No. WhatsApp:* ${customerPhone.trim() ? customerPhone.trim() : '-'}
 - *Alamat Pengiriman:* ${customerAddress.trim()}
 - *Catatan:* ${customerNotes.trim() ? customerNotes.trim() : '-'}
 
@@ -98,6 +98,31 @@ Mohon konfirmasi ketersediaan & ongkos kirimnya ya. Terima kasih!`;
     }
 
     setShowError(false);
+
+    // Persist order to database backend (orders history)
+    try {
+      const orderItems = cartItems.map((item) => ({
+        productId: item.product.id,
+        productName: item.product.name || item.product.Name || 'Produk',
+        quantity: item.quantity,
+        unit: getProductUnit(item.product),
+        price: item.product.price || 0,
+        subtotal: (item.product.price || 0) * item.quantity
+      }));
+
+      createOrder({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        customerAddress: customerAddress.trim(),
+        customerNotes: customerNotes.trim(),
+        items: orderItems,
+        totalPrice: subtotal
+      }).catch((err) => {
+        console.warn('Gagal menyimpan pesanan ke server:', err);
+      });
+    } catch (err) {
+      console.warn('Error saat menyiapkan pesanan:', err);
+    }
 
     const message = generateWhatsAppMessage();
     const encoded = encodeURIComponent(message);
@@ -169,7 +194,7 @@ Mohon konfirmasi ketersediaan & ongkos kirimnya ya. Terima kasih!`;
                       className="cart-item-thumb"
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80';
+                        e.target.src = DEFAULT_PRODUCT_IMAGE;
                       }}
                     />
 
@@ -254,6 +279,14 @@ Mohon konfirmasi ketersediaan & ongkos kirimnya ya. Terima kasih!`;
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 required
+              />
+
+              <input
+                type="tel"
+                className="cart-checkout-input"
+                placeholder="No. WhatsApp / HP (contoh: 08123456789)"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
               />
 
               <input
