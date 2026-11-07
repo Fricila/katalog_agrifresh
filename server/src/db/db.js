@@ -231,6 +231,31 @@ class SqliteDatabase {
     return this.db.prepare('SELECT id, name, email, password FROM admins LIMIT 1').get();
   }
 
+  updateAdmin({ name, email, password }) {
+    const current = this.getAdmin();
+    if (!current) throw new Error('Admin tidak ditemukan');
+
+    const updatedName = name !== undefined ? name : current.name;
+    const updatedEmail = email !== undefined ? email : current.email;
+
+    if (password) {
+      const hashedPassword = bcrypt.hashSync(password, 10);
+      this.db.prepare(`
+        UPDATE admins
+        SET name = ?, email = ?, password = ?
+        WHERE id = ?
+      `).run(updatedName, updatedEmail, hashedPassword, current.id);
+    } else {
+      this.db.prepare(`
+        UPDATE admins
+        SET name = ?, email = ?
+        WHERE id = ?
+      `).run(updatedName, updatedEmail, current.id);
+    }
+
+    return this.getAdmin();
+  }
+
   // --- Category SQL Operations ---
   getCategories() {
     // Relational SQL query with LEFT JOIN and COUNT
@@ -287,7 +312,7 @@ class SqliteDatabase {
             p.created_at AS createdAt,
             p.updated_at AS updatedAt
           FROM products p
-          JOIN categories c ON p.category_id = c.id
+          LEFT JOIN categories c ON p.category_id = c.id
           WHERE 1=1
         `;
     const params = [];
@@ -328,7 +353,7 @@ class SqliteDatabase {
             p.created_at AS createdAt,
             p.updated_at AS updatedAt
           FROM products p
-          JOIN categories c ON p.category_id = c.id
+          LEFT JOIN categories c ON p.category_id = c.id
           WHERE p.id = ?
         `).get(id);
   }

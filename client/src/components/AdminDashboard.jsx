@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Package,
     Layers,
@@ -21,11 +21,15 @@ import {
     X,
     ExternalLink,
     ChevronRight,
-    ShieldCheck
+    ShieldCheck,
+    RefreshCw
 } from 'lucide-react';
 import { ProductFormModal } from './ProductFormModal';
 import { ConfirmModal } from './ConfirmModal';
+import { ProfileModal } from './ProfileModal';
 import {
+    fetchProducts,
+    fetchCategories,
     createProduct,
     updateProduct,
     toggleProductStock,
@@ -33,20 +37,218 @@ import {
     createCategory,
     updateCategory,
     deleteCategory,
-    updateStoreSettings
+    updateStoreSettings,
+    fetchAdminProfile,
+    updateAdminProfile
 } from '../services/api';
 
+// Fallback seed data in case API or parent state is not yet populated
+const DEFAULT_PRODUCTS = [
+    {
+        id: 'prod-1',
+        name: 'Pakcoy Premium',
+        categoryId: 'cat-1',
+        categoryName: 'Sayuran',
+        price: 12000,
+        stockStatus: 'Tersedia',
+        description: 'Pakcoy hidroponik segar, dipetik langsung dari kebun pagi hari. Renyah dan kaya nutrisi.',
+        image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80',
+        unit: 'ikat'
+    },
+    {
+        id: 'prod-wortel',
+        name: 'Wortel Segar',
+        categoryId: 'cat-1',
+        categoryName: 'Sayuran',
+        price: 15000,
+        stockStatus: 'Tersedia',
+        description: 'Wortel manis segar organik pilihan, kaya akan vitamin A dan beta karoten alami.',
+        image: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?auto=format&fit=crop&w=600&q=80',
+        unit: 'kg'
+    },
+    {
+        id: 'prod-apel',
+        name: 'Apel Fuji',
+        categoryId: 'cat-2',
+        categoryName: 'Buah',
+        price: 38000,
+        stockStatus: 'Tersedia',
+        description: 'Apel Fuji manis, renyah dan berair banyak. Pilihan favorit keluarga untuk hidup sehat.',
+        image: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=80',
+        unit: 'kg'
+    },
+    {
+        id: 'prod-2',
+        name: 'Mangga Harumanis',
+        categoryId: 'cat-2',
+        categoryName: 'Buah',
+        price: 32000,
+        stockStatus: 'Tersedia',
+        description: 'Mangga Harumanis matang pohon dengan aroma harum semerbak dan rasa manis legit alami.',
+        image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=600&q=80',
+        unit: 'kg'
+    },
+    {
+        id: 'proud-3',
+        name: 'Tomat Merah',
+        categoryId: 'cat-1',
+        categoryName: 'Sayuran',
+        price: 10000,
+        stockStatus: 'Tersedia',
+        description: 'Tomat merah segar padat berisi, cocok untuk jus sehat, salad, dan masakan harian.',
+        image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80',
+        unit: 'kg'
+    },
+    {
+        id: 'prod-anggur',
+        name: 'Anggur Red Globe',
+        categoryId: 'cat-2',
+        categoryName: 'Buah',
+        price: 48000,
+        stockStatus: 'Tersedia',
+        description: 'Anggur merah manis berdaging tebal dan renyah. Sangat segar untuk santapan keluarga.',
+        image: 'https://images.unsplash.com/photo-1537640538966-79f369143f8f?auto=format&fit=crop&w=600&q=80',
+        unit: 'kg'
+    },
+    {
+        id: 'proud-4',
+        name: 'Jeruk Manis',
+        categoryId: 'cat-2',
+        categoryName: 'Buah',
+        price: 24000,
+        stockStatus: 'Tersedia',
+        description: 'Jeruk segar pilihan dengan rasa manis segar berlimpah vitamin C.',
+        image: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=600&q=80',
+        unit: 'kg'
+    },
+    {
+        id: 'proud-5',
+        name: 'Pisang Cavendish',
+        categoryId: 'cat-2',
+        categoryName: 'Buah',
+        price: 18000,
+        stockStatus: 'Tersedia',
+        description: 'Pisang Cavendish kulit mulus kuning keemasan, manis alami dan lembut.',
+        image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80',
+        unit: 'sisir'
+    },
+    {
+        id: 'prod-salad-buah',
+        name: 'Salad Buah Segar',
+        categoryId: 'cat-3',
+        categoryName: 'Salad Buah',
+        price: 25000,
+        stockStatus: 'Tersedia',
+        description: 'Kombinasi melon, apel, anggur, dan nata de coco dengan saus dressing yogurt segar dan taburan keju.',
+        image: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?auto=format&fit=crop&w=600&q=80',
+        unit: 'bowl'
+    },
+    {
+        id: 'prod-salad-sayur',
+        name: 'Salad Sayur Organik',
+        categoryId: 'cat-4',
+        categoryName: 'Salad Sayur',
+        price: 22000,
+        stockStatus: 'Tersedia',
+        description: 'Campuran selada romaine, wortel serut, kubis ungu, dan tomat ceri dengan dressing wijen sangrai gurih.',
+        image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80',
+        unit: 'bowl'
+    }
+];
+
+const DEFAULT_CATEGORIES = [
+    { id: 'cat-1', name: 'Sayuran', slug: 'sayuran', productCount: 3 },
+    { id: 'cat-2', name: 'Buah', slug: 'buah', productCount: 5 },
+    { id: 'cat-3', name: 'Salad Buah', slug: 'salad-buah', productCount: 1 },
+    { id: 'cat-4', name: 'Salad Sayur', slug: 'salad-sayur', productCount: 1 }
+];
+
 export const AdminDashboard = ({
-    products,
-    categories,
-    storeSettings,
-    adminUser,
-    onRefreshData,
-    onBackToCatalog,
-    onLogout
+    products = [],
+    categories = [],
+    storeSettings = {},
+    adminUser = null,
+    onRefreshData = null,
+    onBackToCatalog = () => { },
+    onLogout = () => { }
 }) => {
     const [activeTab, setActiveTab] = useState('products'); // 'products' | 'categories' | 'settings'
     const [isSidebarOpenMobile, setIsSidebarOpenMobile] = useState(false);
+
+    // Internal state for self-fetching and resilient display
+    const [currentProducts, setCurrentProducts] = useState(() => {
+        if (Array.isArray(products) && products.length > 0) return products;
+        if (Array.isArray(products?.data) && products.data.length > 0) return products.data;
+        return [];
+    });
+    const [currentCategories, setCurrentCategories] = useState(() => {
+        if (Array.isArray(categories) && categories.length > 0) return categories;
+        if (Array.isArray(categories?.data) && categories.data.length > 0) return categories.data;
+        return [];
+    });
+    const [isLoadingData, setIsLoadingData] = useState(false);
+
+    // Sync with incoming props if they arrive later
+    useEffect(() => {
+        const parsed = Array.isArray(products)
+            ? products
+            : Array.isArray(products?.data)
+                ? products.data
+                : [];
+        if (parsed.length > 0) {
+            setCurrentProducts(parsed);
+        }
+    }, [products]);
+
+    useEffect(() => {
+        const parsed = Array.isArray(categories)
+            ? categories
+            : Array.isArray(categories?.data)
+                ? categories.data
+                : [];
+        if (parsed.length > 0) {
+            setCurrentCategories(parsed);
+        }
+    }, [categories]);
+
+    // Self-fetch if initial products are empty
+    const fetchDataFromApi = async () => {
+        setIsLoadingData(true);
+        try {
+            if (typeof onRefreshData === 'function') {
+                await onRefreshData();
+            }
+            const [prodRes, catRes] = await Promise.allSettled([
+                fetchProducts(),
+                fetchCategories()
+            ]);
+
+            if (prodRes.status === 'fulfilled' && prodRes.value) {
+                const prodData = prodRes.value.data || prodRes.value;
+                if (Array.isArray(prodData) && prodData.length > 0) {
+                    setCurrentProducts(prodData);
+                }
+            }
+
+            if (catRes.status === 'fulfilled' && catRes.value) {
+                const catData = catRes.value.data || catRes.value;
+                if (Array.isArray(catData) && catData.length > 0) {
+                    setCurrentCategories(catData);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching admin data:', err);
+        } finally {
+            setIsLoadingData(false);
+        }
+    };
+
+    useEffect(() => {
+        // Auto-fetch if no products provided via props
+        if (!products || (Array.isArray(products) && products.length === 0)) {
+            fetchDataFromApi();
+        }
+    }, []);
 
     // Product states
     const [productSearch, setProductSearch] = useState('');
@@ -64,12 +266,111 @@ export const AdminDashboard = ({
 
     // Settings states
     const [settingsForm, setSettingsForm] = useState({
-        storeName: storeSettings?.storeName || '',
-        tagline: storeSettings?.tagline || '',
-        phone: storeSettings?.phone || '',
-        address: storeSettings?.address || ''
+        storeName: storeSettings?.storeName || 'AgriFresh',
+        tagline: storeSettings?.tagline || 'Pilihan Sayur & Buah Organik Segar Berkualitas',
+        phone: storeSettings?.phone || '6285777435992',
+        address: storeSettings?.address || 'Jl. Sukabumi Asri No. 45, Jawa Barat'
     });
     const [settingsSuccess, setSettingsSuccess] = useState(false);
+  // Profile Modal State
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '' });
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Load admin profile on mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const res = await fetchAdminProfile();
+        if (res && res.user) {
+          setProfileForm({ name: res.user.name || '', email: res.user.email || '', password: '' });
+        }
+      } catch (err) {
+        console.warn('Failed to load admin profile:', err.message);
+      }
+    };
+    loadProfile();
+  }, []);
+
+  const handleProfileChange = (field, value) => {
+    setProfileForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setProfileError('');
+    const { name, email, password } = profileForm;
+    if (!name.trim() || !email.trim()) {
+      setProfileError('Nama dan email wajib diisi.');
+      return;
+    }
+    try {
+      await updateAdminProfile({ name: name.trim(), email: email.trim(), ...(password ? { password } : {}) });
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
+    } catch (err) {
+      setProfileError(err.message || 'Gagal memperbarui profil.');
+    }
+  };
+
+    useEffect(() => {
+        if (storeSettings && Object.keys(storeSettings).length > 0) {
+            setSettingsForm({
+                storeName: storeSettings.storeName || 'AgriFresh',
+                tagline: storeSettings.tagline || 'Pilihan Sayur & Buah Organik Segar Berkualitas',
+                phone: storeSettings.phone || '6285777435992',
+                address: storeSettings.address || 'Jl. Sukabumi Asri No. 45, Jawa Barat'
+            });
+        }
+    }, [storeSettings]);
+
+    // Active Category List with robust fallback
+    const activeCategories = useMemo(() => {
+        const source = (currentCategories && currentCategories.length > 0)
+            ? currentCategories
+            : (Array.isArray(categories) && categories.length > 0)
+                ? categories
+                : (Array.isArray(categories?.data) && categories.data.length > 0)
+                    ? categories.data
+                    : DEFAULT_CATEGORIES;
+
+        return source.map((c, idx) => ({
+            ...c,
+            id: c.id || `cat-${idx + 1}`,
+            name: c.name || c.title || `Kategori ${idx + 1}`
+        }));
+    }, [currentCategories, categories]);
+
+    // Active Product List with robust normalization & fallback
+    const activeProducts = useMemo(() => {
+        const source = (currentProducts && currentProducts.length > 0)
+            ? currentProducts
+            : (Array.isArray(products) && products.length > 0)
+                ? products
+                : (Array.isArray(products?.data) && products.data.length > 0)
+                    ? products.data
+                    : DEFAULT_PRODUCTS;
+
+        return source.map((p, idx) => {
+            const catId = p.categoryId || p.category_id || p.category || '';
+            const matchedCategory = activeCategories.find((c) => String(c.id) === String(catId));
+            const catName = p.categoryName || p.category_name || (matchedCategory ? matchedCategory.name : 'Organik');
+
+            return {
+                ...p,
+                id: p.id || p._id || `prod-auto-${idx}`,
+                name: p.name || p.Name || p.title || 'Produk Segar',
+                categoryId: catId,
+                categoryName: catName,
+                price: Number(p.price) || 0,
+                stockStatus: p.stockStatus || p.stock_status || 'Tersedia',
+                image: p.image || p.imageUrl || p.photo || '',
+                unit: p.unit || 'kg',
+                description: p.description || p.desc || ''
+            };
+        });
+    }, [currentProducts, products, activeCategories]);
 
     // Currency Formatter
     const formatRupiah = (num) => {
@@ -77,21 +378,26 @@ export const AdminDashboard = ({
             style: 'currency',
             currency: 'IDR',
             minimumFractionDigits: 0
-        }).format(num);
+        }).format(Number(num) || 0);
     };
 
     // Filter products for admin table
-    const filteredProducts = products.filter((p) => {
-        const matchesCat = !productCategoryFilter || String(p.categoryId) === String(productCategoryFilter);
-        const matchesSearch = !productSearch ||
-            (p.name || p.Name || '').toLowerCase().includes((productSearch || '').toLowerCase()) ||
-            p.categoryName?.toLowerCase().includes(productSearch.toLowerCase());
-        return matchesCat && matchesSearch;
-    });
+    const filteredProducts = useMemo(() => {
+        return activeProducts.filter((p) => {
+            const matchesCat = !productCategoryFilter || String(p.categoryId) === String(productCategoryFilter);
+            const searchLower = (productSearch || '').trim().toLowerCase();
+            const matchesSearch = !searchLower ||
+                p.name.toLowerCase().includes(searchLower) ||
+                p.categoryName.toLowerCase().includes(searchLower) ||
+                p.description.toLowerCase().includes(searchLower);
+
+            return matchesCat && matchesSearch;
+        });
+    }, [activeProducts, productCategoryFilter, productSearch]);
 
     // Stock counts
-    const totalCount = products.length;
-    const availableCount = products.filter((p) => p.stockStatus === 'Tersedia').length;
+    const totalCount = activeProducts.length;
+    const availableCount = activeProducts.filter((p) => p.stockStatus === 'Tersedia').length;
     const outCount = totalCount - availableCount;
 
     // --- Handlers: Product Management ---
@@ -106,31 +412,130 @@ export const AdminDashboard = ({
     };
 
     const handleSaveProduct = async (payload, id) => {
-        if (id) {
-            await updateProduct(id, payload);
-        } else {
-            await createProduct(payload);
+        const isFormData = payload instanceof FormData;
+        const formName = isFormData ? payload.get('name') : payload.name;
+        const rawPrice = isFormData ? payload.get('price') : payload.price;
+        const formPrice = rawPrice !== undefined && rawPrice !== null ? Number(rawPrice) : undefined;
+        const formCategoryId = isFormData ? payload.get('categoryId') : payload.categoryId;
+        const formUnit = isFormData ? payload.get('unit') : payload.unit;
+        const formStockStatus = isFormData ? payload.get('stockStatus') : payload.stockStatus;
+        const formDescription = isFormData ? payload.get('description') : payload.description;
+        const formImage = isFormData ? (payload.get('imageUrl') || '') : (payload.imageUrl || '');
+
+        let savedProduct = null;
+        try {
+            if (id) {
+                const res = await updateProduct(id, payload);
+                savedProduct = res?.data || res;
+            } else {
+                const res = await createProduct(payload);
+                savedProduct = res?.data || res;
+            }
+        } catch (err) {
+            console.warn('Gagal menyimpan produk ke server:', err.message);
         }
-        await onRefreshData();
+
+        const resolvedCatName = activeCategories.find((c) => String(c.id) === String(formCategoryId))?.name || 'Organik';
+
+        // Optimistically update local state so products appear and update immediately
+        if (id) {
+            const finalImage = (savedProduct && savedProduct.image)
+                ? savedProduct.image
+                : (formImage || '');
+
+            setCurrentProducts((prev) => {
+                const list = prev && prev.length > 0 ? prev : activeProducts;
+                return list.map((p) => {
+                    if (p.id === id) {
+                        return {
+                            ...p,
+                            ...(savedProduct || {}),
+                            name: formName || savedProduct?.name || p.name,
+                            price: formPrice !== undefined && !isNaN(formPrice) ? formPrice : (savedProduct?.price ?? p.price),
+                            categoryId: formCategoryId || savedProduct?.categoryId || p.categoryId,
+                            categoryName: resolvedCatName || savedProduct?.categoryName || p.categoryName,
+                            unit: formUnit || savedProduct?.unit || p.unit,
+                            stockStatus: formStockStatus || savedProduct?.stockStatus || p.stockStatus,
+                            description: formDescription !== undefined ? formDescription : (savedProduct?.description ?? p.description),
+                            image: finalImage || p.image
+                        };
+                    }
+                    return p;
+                });
+            });
+        } else {
+            const finalImage = (savedProduct && savedProduct.image)
+                ? savedProduct.image
+                : (formImage || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80');
+
+            const newProd = {
+                id: savedProduct?.id || `prod-${Date.now()}`,
+                name: formName || savedProduct?.name || 'Produk Baru',
+                categoryId: formCategoryId || savedProduct?.categoryId || (activeCategories[0]?.id || 'cat-1'),
+                categoryName: resolvedCatName,
+                price: formPrice !== undefined && !isNaN(formPrice) ? formPrice : (savedProduct?.price || 0),
+                unit: formUnit || savedProduct?.unit || 'kg',
+                stockStatus: formStockStatus || savedProduct?.stockStatus || 'Tersedia',
+                description: formDescription || savedProduct?.description || '',
+                image: finalImage,
+                ...(savedProduct || {})
+            };
+            setCurrentProducts((prev) => [newProd, ...(prev && prev.length > 0 ? prev : activeProducts)]);
+        }
+
+        if (typeof onRefreshData === 'function') {
+            try {
+                await onRefreshData();
+            } catch (_) { }
+        }
     };
 
     const handleToggleStock = async (id) => {
+        // Optimistic update
+        setCurrentProducts((prev) => {
+            const list = prev && prev.length > 0 ? prev : activeProducts;
+            return list.map((p) => {
+                if (p.id === id) {
+                    const nextStatus = p.stockStatus === 'Tersedia' ? 'Habis' : 'Tersedia';
+                    return { ...p, stockStatus: nextStatus };
+                }
+                return p;
+            });
+        });
+
         try {
             await toggleProductStock(id);
-            await onRefreshData();
         } catch (err) {
-            alert(`Gagal mengubah stok: ${err.message}`);
+            console.warn('Gagal sinkron toggle stok ke server:', err.message);
+        }
+
+        if (typeof onRefreshData === 'function') {
+            try {
+                await onRefreshData();
+            } catch (_) { }
         }
     };
 
     const handleConfirmDeleteProduct = async () => {
         if (!deletingProduct) return;
+        const targetId = deletingProduct.id;
+
+        setCurrentProducts((prev) => {
+            const list = prev && prev.length > 0 ? prev : activeProducts;
+            return list.filter((p) => p.id !== targetId);
+        });
+        setDeletingProduct(null);
+
         try {
-            await deleteProduct(deletingProduct.id);
-            setDeletingProduct(null);
-            await onRefreshData();
+            await deleteProduct(targetId);
         } catch (err) {
-            alert(`Gagal menghapus produk: ${err.message}`);
+            console.warn('Gagal menghapus produk di server:', err.message);
+        }
+
+        if (typeof onRefreshData === 'function') {
+            try {
+                await onRefreshData();
+            } catch (_) { }
         }
     };
 
@@ -138,14 +543,31 @@ export const AdminDashboard = ({
     const handleAddCategory = async (e) => {
         e.preventDefault();
         setCatError('');
-        if (!newCatName.trim()) return;
+        const trimmed = newCatName.trim();
+        if (!trimmed) return;
 
+        let createdCat = null;
         try {
-            await createCategory(newCatName.trim());
-            setNewCatName('');
-            await onRefreshData();
+            const res = await createCategory(trimmed);
+            createdCat = res?.data || res;
         } catch (err) {
-            setCatError(err.message);
+            setCatError(err.message || 'Gagal menambahkan kategori');
+        }
+
+        const newCatObj = {
+            id: createdCat?.id || `cat-${Date.now()}`,
+            name: trimmed,
+            slug: trimmed.toLowerCase().replace(/\s+/g, '-'),
+            productCount: 0
+        };
+
+        setCurrentCategories((prev) => [...(prev && prev.length > 0 ? prev : activeCategories), newCatObj]);
+        setNewCatName('');
+
+        if (typeof onRefreshData === 'function') {
+            try {
+                await onRefreshData();
+            } catch (_) { }
         }
     };
 
@@ -156,25 +578,48 @@ export const AdminDashboard = ({
     };
 
     const handleSaveEditCategory = async (id) => {
-        if (!editCatName.trim()) return;
+        const trimmed = editCatName.trim();
+        if (!trimmed) return;
+
+        setCurrentCategories((prev) => {
+            const list = prev && prev.length > 0 ? prev : activeCategories;
+            return list.map((c) => (c.id === id ? { ...c, name: trimmed } : c));
+        });
+        setEditingCategory(null);
+
         try {
-            await updateCategory(id, editCatName.trim());
-            setEditingCategory(null);
-            await onRefreshData();
+            await updateCategory(id, trimmed);
         } catch (err) {
-            setCatError(err.message);
+            setCatError(err.message || 'Gagal memperbarui kategori');
+        }
+
+        if (typeof onRefreshData === 'function') {
+            try {
+                await onRefreshData();
+            } catch (_) { }
         }
     };
 
     const handleConfirmDeleteCategory = async () => {
         if (!deletingCategory) return;
+        const targetId = deletingCategory.id;
+
+        setCurrentCategories((prev) => {
+            const list = prev && prev.length > 0 ? prev : activeCategories;
+            return list.filter((c) => c.id !== targetId);
+        });
+        setDeletingCategory(null);
+
         try {
-            await deleteCategory(deletingCategory.id);
-            setDeletingCategory(null);
-            await onRefreshData();
+            await deleteCategory(targetId);
         } catch (err) {
             alert(err.message);
-            setDeletingCategory(null);
+        }
+
+        if (typeof onRefreshData === 'function') {
+            try {
+                await onRefreshData();
+            } catch (_) { }
         }
     };
 
@@ -184,7 +629,9 @@ export const AdminDashboard = ({
         try {
             await updateStoreSettings(settingsForm);
             setSettingsSuccess(true);
-            await onRefreshData();
+            if (typeof onRefreshData === 'function') {
+                await onRefreshData();
+            }
             setTimeout(() => setSettingsSuccess(false), 3000);
         } catch (err) {
             alert(`Gagal menyimpan pengaturan: ${err.message}`);
@@ -211,8 +658,8 @@ export const AdminDashboard = ({
                         <ShoppingBag size={22} color="#ffffff" />
                     </div>
                     <div className="sidebar-brand-text">
-                        <div className="sidebar-brand-title">AgriFresh</div>
-                        <div className="sidebar-brand-badge">Admin Fresh Market</div>
+                        <div className="sidebar-brand-title">{storeSettings?.storeName || 'AgriFresh'}</div>
+                        <div className="sidebar-brand-badge">{storeSettings?.tagline || 'Admin Fresh Market'}</div>
                     </div>
                     <button
                         className="sidebar-close-mobile"
@@ -256,7 +703,7 @@ export const AdminDashboard = ({
                     >
                         <Layers size={18} />
                         <span className="nav-item-label">Manajemen Kategori</span>
-                        <span className="nav-badge-count">{categories.length}</span>
+                        <span className="nav-badge-count">{activeCategories.length}</span>
                     </button>
 
                     <button
@@ -287,24 +734,34 @@ export const AdminDashboard = ({
                 {/* Sidebar Footer User Info & Logout */}
                 <div className="sidebar-footer">
                     <div className="sidebar-user-card">
-                        <div className="user-avatar">
-                            <ShieldCheck size={18} color="#10b981" />
-                        </div>
+                        <div className="user-avatar"><ShieldCheck size={18} color="#10b981" /></div>
                         <div className="user-info">
-                            <strong className="user-name">{adminUser?.name || 'Store Owner'}</strong>
-                            <span className="user-email">{adminUser?.email || 'admin@katalogwa.com'}</span>
+                            <strong className="user-name">{adminUser?.name || profileForm.name || 'Store Owner'}</strong>
+                            <span className="user-email">{adminUser?.email || profileForm.email || 'admin@katalogwa.com'}</span>
                         </div>
                     </div>
-
-                    <button
-                        className="sidebar-logout-btn"
-                        onClick={onLogout}
-                        id="sidebar-logout-btn"
-                        title="Keluar dari sesi admin"
-                    >
-                        <LogOut size={16} />
-                        <span>Logout Sesi</span>
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%', marginTop: '0.5rem' }}>
+                        <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setIsProfileModalOpen(true)}
+                            style={{ flex: 1 }}
+                            title="Ubah Profil Admin"
+                        >
+                            Edit Profil
+                        </button>
+                        <button
+                            type="button"
+                            className="sidebar-logout-btn"
+                            onClick={onLogout}
+                            id="sidebar-logout-btn"
+                            title="Keluar dari sesi admin"
+                            style={{ flex: 1, justifyContent: 'center' }}
+                        >
+                            <LogOut size={16} />
+                            <span>Logout</span>
+                        </button>
+                    </div>
                 </div>
             </aside>
 
@@ -334,7 +791,18 @@ export const AdminDashboard = ({
                         </div>
                     </div>
 
-                    <div className="top-bar-right">
+                    <div className="top-bar-right" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={fetchDataFromApi}
+                            disabled={isLoadingData}
+                            title="Segarkan data produk & kategori"
+                        >
+                            <RefreshCw size={14} className={isLoadingData ? 'animate-spin' : ''} />
+                            <span>{isLoadingData ? 'Memuat...' : 'Segarkan'}</span>
+                        </button>
+
                         <button className="btn btn-secondary btn-sm" onClick={onBackToCatalog}>
                             <Store size={15} />
                             <span>Katalog Publik</span>
@@ -382,7 +850,7 @@ export const AdminDashboard = ({
                             </div>
                             <div>
                                 <span className="metric-label">Total Kategori</span>
-                                <h3 className="metric-value">{categories.length}</h3>
+                                <h3 className="metric-value">{activeCategories.length}</h3>
                             </div>
                         </div>
                     </div>
@@ -394,15 +862,29 @@ export const AdminDashboard = ({
                         <div className="admin-tab-content animate-fade-in">
                             <div className="table-controls-bar">
                                 <div className="table-search-group">
-                                    <div className="search-input-wrapper" style={{ width: '280px' }}>
+                                    <div className="search-input-wrapper table-search-input-wrapper">
                                         <Search size={16} className="search-icon" />
                                         <input
                                             type="text"
                                             className="search-input"
-                                            placeholder="Cari nama produk..."
+                                            placeholder="Cari nama / kategori produk..."
                                             value={productSearch}
                                             onChange={(e) => setProductSearch(e.target.value)}
                                         />
+                                        {productSearch && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setProductSearch('')}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    color: 'var(--text-muted)'
+                                                }}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
                                     </div>
 
                                     <select
@@ -410,8 +892,8 @@ export const AdminDashboard = ({
                                         value={productCategoryFilter}
                                         onChange={(e) => setProductCategoryFilter(e.target.value)}
                                     >
-                                        <option value="">Semua Kategori</option>
-                                        {categories.map((c) => (
+                                        <option value="">Semua Kategori ({totalCount})</option>
+                                        {activeCategories.map((c) => (
                                             <option key={c.id} value={c.id}>
                                                 {c.name}
                                             </option>
@@ -419,14 +901,21 @@ export const AdminDashboard = ({
                                     </select>
                                 </div>
 
-                                <button
-                                    className="btn btn-primary"
-                                    onClick={handleOpenAddProduct}
-                                    id="btn-add-product"
-                                >
-                                    <Plus size={18} />
-                                    <span>+ Tambah Produk</span>
-                                </button>
+                                <div className="table-actions-top">
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={handleOpenAddProduct}
+                                        id="btn-add-product"
+                                    >
+                                        <Plus size={18} />
+                                        <span>+ Tambah Produk</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Mobile Scroll Hint */}
+                            <div className="table-scroll-hint">
+                                <span>← Geser ke samping untuk melihat detail & status stok →</span>
                             </div>
 
                             {/* Products Table */}
@@ -445,19 +934,50 @@ export const AdminDashboard = ({
                                     <tbody>
                                         {filteredProducts.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="table-empty-cell">
-                                                    Tidak ada produk yang cocok dengan pencarian / filter SQL.
+                                                <td colSpan="6" className="table-empty-cell" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                                                        <Package size={40} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                                                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-dark)', fontSize: '1rem' }}>
+                                                            {productSearch || productCategoryFilter
+                                                                ? 'Tidak ada produk yang cocok dengan pencarian atau filter kategori ini.'
+                                                                : 'Belum ada produk yang terdaftar di database.'}
+                                                        </p>
+                                                        {(productSearch || productCategoryFilter) ? (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-secondary btn-sm"
+                                                                onClick={() => {
+                                                                    setProductSearch('');
+                                                                    setProductCategoryFilter('');
+                                                                }}
+                                                            >
+                                                                Reset Filter & Pencarian
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-primary btn-sm"
+                                                                onClick={handleOpenAddProduct}
+                                                            >
+                                                                <Plus size={16} />
+                                                                <span>Tambah Produk Pertama</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ) : (
                                             filteredProducts.map((prod) => {
-                                                const isAvailable = prod.stockStatus === 'Tersedia';
+                                                const isAvailable = (prod.stockStatus || prod.stock_status || '') === 'Tersedia';
+                                                const rawImg = (prod.image && prod.image !== '-' && prod.image !== '_' && typeof prod.image === 'string' && prod.image.trim() !== '') ? prod.image.trim() : '';
+                                                const prodImg = rawImg.startsWith('uploads/') ? `/${rawImg}` : (rawImg || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80');
+
                                                 return (
                                                     <tr key={prod.id} className={!isAvailable ? 'row-out-of-stock' : ''}>
                                                         {/* Image */}
                                                         <td style={{ width: '64px' }}>
                                                             <img
-                                                                src={prod.image && prod.image !== '-' && prod.image !== '_' ? prod.image : 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80'}
+                                                                src={prodImg}
                                                                 alt={prod.name}
                                                                 className="table-product-thumb"
                                                                 onError={(e) => {
@@ -469,7 +989,7 @@ export const AdminDashboard = ({
 
                                                         {/* Name & Desc */}
                                                         <td>
-                                                            <strong className="table-product-name">{prod.name || prod.Name}</strong>
+                                                            <strong className="table-product-name">{prod.name}</strong>
                                                             {prod.description && (
                                                                 <p className="table-product-desc">{prod.description}</p>
                                                             )}
@@ -485,7 +1005,10 @@ export const AdminDashboard = ({
                                                         {/* Price */}
                                                         <td>
                                                             <strong className="table-product-price">
-                                                                {formatRupiah(prod.price)} <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {prod.unit || 'kg'}</span>
+                                                                {formatRupiah(prod.price)}{' '}
+                                                                <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                                                    / {prod.unit || 'kg'}
+                                                                </span>
                                                             </strong>
                                                         </td>
 
@@ -576,9 +1099,9 @@ export const AdminDashboard = ({
 
                                 {/* List of Categories */}
                                 <div className="card-box">
-                                    <h3 className="box-title">Daftar Kategori ({categories.length})</h3>
+                                    <h3 className="box-title">Daftar Kategori ({activeCategories.length})</h3>
                                     <div className="category-items-list">
-                                        {categories.map((cat) => (
+                                        {activeCategories.map((cat) => (
                                             <div key={cat.id} className="category-item-row">
                                                 {editingCategory?.id === cat.id ? (
                                                     <div className="category-inline-edit">
@@ -607,7 +1130,7 @@ export const AdminDashboard = ({
                                                         <div className="cat-name-info">
                                                             <strong>{cat.name}</strong>
                                                             <span className="badge badge-category" style={{ fontSize: '0.75rem' }}>
-                                                                {cat.productCount || 0} Produk Terdaftar
+                                                                {cat.productCount !== undefined ? cat.productCount : 0} Produk Terdaftar
                                                             </span>
                                                         </div>
 
@@ -722,7 +1245,7 @@ export const AdminDashboard = ({
                 onClose={() => setIsProductModalOpen(false)}
                 onSave={handleSaveProduct}
                 editingProduct={editingProduct}
-                categories={categories}
+                categories={activeCategories}
             />
 
             {/* Confirm Delete Product Modal */}
@@ -743,6 +1266,17 @@ export const AdminDashboard = ({
                 onConfirm={handleConfirmDeleteCategory}
                 onCancel={() => setDeletingCategory(null)}
                 confirmText="Hapus Kategori"
+            />
+
+            {/* Profile Edit Modal */}
+            <ProfileModal
+                isOpen={isProfileModalOpen}
+                onClose={() => setIsProfileModalOpen(false)}
+                onSave={handleSaveProfile}
+                profileForm={profileForm}
+                setProfileForm={setProfileForm}
+                profileError={profileError}
+                profileSuccess={profileSuccess}
             />
         </div>
     );

@@ -141,6 +141,13 @@ export function App() {
     }
   }, []);
 
+  // Dynamically update document title based on store settings
+  useEffect(() => {
+    if (storeSettings?.storeName) {
+      document.title = `${storeSettings.storeName} - ${storeSettings.tagline || 'Fresh Garden Market'}`;
+    }
+  }, [storeSettings]);
+
   // Handle Logout
   const handleLogout = () => {
     clearAuthToken();
@@ -394,10 +401,10 @@ export function App() {
             </section>
 
             {/* 4. Keunggulan Toko */}
-            <StoreFeatures />
+            <StoreFeatures storeSettings={storeSettings} />
 
             {/* 5. Tentang Kami Section */}
-            <AboutSection />
+            <AboutSection storeSettings={storeSettings} />
 
             {/* 6. Footer */}
             <Footer storeSettings={storeSettings} />

@@ -7,7 +7,9 @@ import {
   Sprout
 } from 'lucide-react';
 
-export const StoreFeatures = () => {
+export const StoreFeatures = ({ storeSettings }) => {
+  const storeName = storeSettings?.storeName || 'AgriFresh';
+
   const features = [
     {
       icon: <Sprout size={26} />,
@@ -31,7 +33,7 @@ export const StoreFeatures = () => {
       icon: <HeartHandshake size={26} />,
       title: 'Layanan Ramah',
       subtitle: 'Siap Membantu',
-      description: 'Customer service kami siap membantu Anda konsultasi kebutuhan nutrisi keluarga via WhatsApp.'
+      description: `Customer service ${storeName} siap membantu Anda konsultasi kebutuhan nutrisi keluarga via WhatsApp.`
     }
   ];
 
@@ -43,7 +45,7 @@ export const StoreFeatures = () => {
             <ShieldCheck size={14} />
             <span>Mengapa Memilih Kami</span>
           </span>
-          <h2 className="section-title">Keunggulan AgriFresh</h2>
+          <h2 className="section-title">Keunggulan {storeName}</h2>
           <p className="section-subtitle">
             Standar kesegaran dan kenyamanan belanja sayur & buah terbaik untuk keluarga Indonesia
           </p>
@@ -69,4 +71,3 @@ export const StoreFeatures = () => {
     </section>
   );
 };
-

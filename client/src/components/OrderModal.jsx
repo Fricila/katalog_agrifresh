@@ -28,7 +28,7 @@ export const OrderModal = ({ product, storeSettings, onClose }) => {
             style: 'currency',
             currency: 'IDR',
             minimumFractionDigits: 0
-        }).format(num);
+        }).format(Number(num) || 0);
     };
 
     const totalPrice = (product.price || 0) * quantity;
@@ -98,6 +98,10 @@ Mohon diproses ya, terima kasih!`;
                                 src={displayImage}
                                 alt={productName}
                                 className="summary-img"
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80';
+                                }}
                             />
                             <div className="summary-details">
                                 <span className="summary-category">{product.categoryName}</span>

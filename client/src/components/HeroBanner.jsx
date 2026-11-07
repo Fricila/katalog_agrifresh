@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 
 export const HeroBanner = ({ storeSettings, onShopNow }) => {
+  const storeName = storeSettings?.storeName || 'AgriFresh';
   const storePhone = (storeSettings?.phone || '6285777435992').replace(/[^0-9]/g, '');
+  const storeTagline = storeSettings?.tagline || 'Sayur & Buah Segar Langsung dari Kebun';
 
   const handleScrollToProducts = () => {
     if (onShopNow) {
@@ -23,7 +25,7 @@ export const HeroBanner = ({ storeSettings, onShopNow }) => {
   };
 
   const handleOpenWhatsApp = () => {
-    const waUrl = `https://wa.me/${storePhone}?text=${encodeURIComponent('Halo AgriFresh, saya ingin tanya seputar produk sayur dan buah segar hari ini!')}`;
+    const waUrl = `https://wa.me/${storePhone}?text=${encodeURIComponent(`Halo ${storeName}, saya ingin tanya seputar produk sayur dan buah segar hari ini!`)}`;
     window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -49,7 +51,7 @@ export const HeroBanner = ({ storeSettings, onShopNow }) => {
 
             {/* Subtitle */}
             <p className="hero-desc">
-              Nikmati kesegaran produk berkualitas untuk hidup lebih sehat! Pilihan sayur hijau renyah dan buah manis alami dipetik langsung oleh petani mitra terpercaya.
+              {storeTagline}. Nikmati kesegaran produk berkualitas untuk hidup lebih sehat langsung dari petani mitra terpercaya {storeName}.
             </p>
 
             {/* Features Chip Row */}
@@ -100,9 +102,13 @@ export const HeroBanner = ({ storeSettings, onShopNow }) => {
 
             <img
               src={heroImage}
-              alt="Keranjang sayur dan buah segar AgriFresh"
+              alt={`Keranjang sayur dan buah segar ${storeName}`}
               className="hero-basket-img"
               loading="eager"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=900&q=80';
+              }}
             />
 
             {/* Floating Organic Badge 1 (Top Right) */}

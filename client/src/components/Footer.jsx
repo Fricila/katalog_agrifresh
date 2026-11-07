@@ -40,12 +40,12 @@ export const Footer = ({ storeSettings }) => {
                 <Sprout size={20} />
               </div>
               <h3 className="footer-brand-title">
-                Agri<span>Fresh</span>
+                {storeName}
               </h3>
             </div>
 
             <p className="footer-desc">
-              Katalog belanja sayur, buah segar, dan olahan salad organik pilihan langsung dari kebun mitra terpercaya. Dipanen subuh, diantar segar untuk hidup sehat Anda.
+              {storeSettings?.tagline || 'Katalog belanja sayur, buah segar, dan olahan salad organik pilihan langsung dari kebun mitra terpercaya. Dipanen subuh, diantar segar untuk hidup sehat Anda.'}
             </p>
 
             {/* Social Media Links */}
@@ -55,7 +55,7 @@ export const Footer = ({ storeSettings }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="footer-social-btn"
-                title="Instagram AgriFresh"
+                title={`Instagram ${storeName}`}
                 aria-label="Instagram"
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -69,7 +69,7 @@ export const Footer = ({ storeSettings }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="footer-social-btn"
-                title="Facebook AgriFresh"
+                title={`Facebook ${storeName}`}
                 aria-label="Facebook"
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -117,7 +117,7 @@ export const Footer = ({ storeSettings }) => {
                 <a href="#keunggulan">Keunggulan Toko</a>
               </li>
               <li>
-                <a href="#tentang-kami">Tentang AgriFresh</a>
+                <a href="#tentang-kami">Tentang {storeName}</a>
               </li>
             </ul>
           </div>

@@ -31,6 +31,8 @@ export const Header = ({
   search = '',
   setSearch
 }) => {
+  const storeName = storeSettings?.storeName || 'AgriFresh';
+  const storeTagline = storeSettings?.tagline || 'Fresh Garden Market';
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpenMobile, setIsSearchOpenMobile] = useState(false);
@@ -73,16 +75,16 @@ export const Header = ({
             if (setIsAdminView) setIsAdminView(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          title="AgriFresh - Fresh Garden Modern Organic Market"
+          title={`${storeName} - ${storeTagline}`}
         >
           <div className="brand-icon">
             <Sprout size={24} />
           </div>
           <div className="brand-info">
             <span className="brand-name">
-              Agri<span>Fresh</span>
+              {storeName}
             </span>
-            <span className="brand-tag">Fresh Garden Market</span>
+            <span className="brand-tag">{storeTagline}</span>
           </div>
         </div>
 
@@ -269,19 +271,37 @@ export const Header = ({
       {/* Mobile Drawer Menu */}
       {isMobileMenuOpen && (
         <div
-          className="modal-backdrop"
+          className="mobile-nav-backdrop"
           onClick={() => setIsMobileMenuOpen(false)}
-          style={{ zIndex: 90, alignItems: 'flex-start', paddingTop: '4.5rem' }}
         >
           <div
-            className="modal-content animate-slide-up"
+            className="mobile-nav-panel animate-slide-left"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '360px', padding: '1.25rem' }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ fontWeight: 700, color: 'var(--dark-green)', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
-                Navigasi AgriFresh
+            {/* Mobile Drawer Header */}
+            <div className="mobile-nav-header">
+              <div className="brand-group" style={{ cursor: 'default' }}>
+                <div className="brand-icon" style={{ width: '36px', height: '36px' }}>
+                  <Sprout size={20} />
+                </div>
+                <div className="brand-info">
+                  <span className="brand-name" style={{ fontSize: '1.15rem' }}>{storeName}</span>
+                  <span className="brand-tag" style={{ fontSize: '0.68rem' }}>{storeTagline}</span>
+                </div>
               </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setIsMobileMenuOpen(false)}
+                title="Tutup menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Mobile Drawer Body */}
+            <div className="mobile-nav-body">
+              {/* Search Inside Drawer */}
               <div className="mobile-drawer-search">
                 <Search size={16} />
                 <input
@@ -291,53 +311,142 @@ export const Header = ({
                   onChange={(e) => setSearch && setSearch(e.target.value)}
                 />
                 {search && (
-                  <button onClick={() => setSearch && setSearch('')}>
+                  <button type="button" onClick={() => setSearch && setSearch('')}>
                     <X size={14} />
                   </button>
                 )}
               </div>
 
+              {/* Main Links */}
+              <div className="mobile-nav-section-title">Navigasi Utama</div>
               <button
-                className="dropdown-item"
+                type="button"
+                className="mobile-nav-item"
                 onClick={() => handleNavScroll('beranda')}
               >
-                Beranda
+                <Store size={18} />
+                <span>Beranda Toko</span>
               </button>
 
-              <div style={{ padding: '0.5rem 0.85rem', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Kategori Produk:
+              <button
+                type="button"
+                className="mobile-nav-item"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  if (onOpenCart) onOpenCart();
+                }}
+              >
+                <ShoppingBag size={18} />
+                <span>Keranjang Belanja</span>
+                {cartCount > 0 && <span className="dropdown-badge">{cartCount}</span>}
+              </button>
+
+              {/* Categories Section */}
+              <div className="mobile-nav-section-title" style={{ marginTop: '0.75rem' }}>
+                Kategori Produk
               </div>
               <button
-                className={`dropdown-item ${activeCategoryId === '' ? 'active' : ''}`}
+                type="button"
+                className={`mobile-nav-item ${activeCategoryId === '' ? 'active' : ''}`}
                 onClick={() => handleCategoryClick('')}
               >
-                Semua Produk
+                <Layers size={18} />
+                <span>Semua Produk</span>
               </button>
               {categories.map((c) => (
                 <button
                   key={c.id}
-                  className={`dropdown-item ${activeCategoryId === c.id ? 'active' : ''}`}
+                  type="button"
+                  className={`mobile-nav-item ${activeCategoryId === c.id ? 'active' : ''}`}
                   onClick={() => handleCategoryClick(c.id)}
                 >
-                  {c.name}
+                  <Sprout size={18} />
+                  <span>{c.name}</span>
+                  {c.productCount !== undefined && (
+                    <span className="dropdown-badge">{c.productCount}</span>
+                  )}
                 </button>
               ))}
 
-              <hr style={{ border: 'none', borderTop: '1px solid var(--cream-border)', margin: '0.5rem 0' }} />
+              {/* Information Links */}
+              <div className="mobile-nav-section-title" style={{ marginTop: '0.75rem' }}>
+                Informasi & Bantuan
+              </div>
+              <button
+                type="button"
+                className="mobile-nav-item"
+                onClick={() => handleNavScroll('keunggulan')}
+              >
+                <Info size={18} />
+                <span>Keunggulan Toko</span>
+              </button>
 
               <button
-                className="dropdown-item"
+                type="button"
+                className="mobile-nav-item"
                 onClick={() => handleNavScroll('tentang-kami')}
               >
-                Tentang Kami
+                <Info size={18} />
+                <span>Tentang {storeName}</span>
               </button>
 
               <button
-                className="dropdown-item"
+                type="button"
+                className="mobile-nav-item"
                 onClick={() => handleNavScroll('kontak')}
               >
-                Kontak & Alamat
+                <Phone size={18} />
+                <span>Kontak & Alamat</span>
               </button>
+            </div>
+
+            {/* Mobile Drawer Footer (Admin Access) */}
+            <div className="mobile-nav-footer">
+              {adminUser ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Masuk sebagai <strong>{adminUser.name || 'Admin'}</strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 1 }}
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        if (setIsAdminView) setIsAdminView(true);
+                      }}
+                    >
+                      <LayoutDashboard size={15} />
+                      <span>Panel Admin</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        if (onLogout) onLogout();
+                      }}
+                      title="Keluar sesi admin"
+                    >
+                      <LogOut size={15} color="#ef4444" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (onOpenLogin) onOpenLogin();
+                  }}
+                >
+                  <Lock size={15} />
+                  <span>Login Admin Toko</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

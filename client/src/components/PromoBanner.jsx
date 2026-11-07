@@ -9,11 +9,12 @@ import {
 } from 'lucide-react';
 
 export const PromoBanner = ({ storeSettings }) => {
+  const storeName = storeSettings?.storeName || 'AgriFresh';
   const storePhone = (storeSettings?.phone || '6285777435992').replace(/[^0-9]/g, '');
 
   const handleChatWA = () => {
     const text = encodeURIComponent(
-      'Halo AgriFresh, saya ingin belanja sayur dan buah segar melalui WhatsApp. Mohon info rekomendasi produk terbaik hari ini ya!'
+      `Halo ${storeName}, saya ingin belanja sayur dan buah segar melalui WhatsApp. Mohon info rekomendasi produk terbaik hari ini ya!`
     );
     window.open(`https://wa.me/${storePhone}?text=${text}`, '_blank', 'noopener,noreferrer');
   };

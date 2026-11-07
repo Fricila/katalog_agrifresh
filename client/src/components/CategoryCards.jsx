@@ -80,6 +80,10 @@ export const CategoryCards = ({
                 alt="Semua Produk"
                 className="category-thumb-img"
                 loading="lazy"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=300&q=80';
+                }}
               />
             </div>
             <h3 className="category-card-name">Semua Produk</h3>
@@ -105,6 +109,10 @@ export const CategoryCards = ({
                     alt={cat.name}
                     className="category-thumb-img"
                     loading="lazy"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80';
+                    }}
                   />
                 </div>
                 <h3 className="category-card-name">{cat.name}</h3>

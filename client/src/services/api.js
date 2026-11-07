@@ -83,12 +83,18 @@ const handleResponse = async (response) => {
 // ============================================
 
 const apiRequest = async (endpoint, options = {}) => {
+  const isFormData = options.body instanceof FormData;
+  const headers = getHeaders(isFormData);
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+  }
+  if (isFormData) {
+    delete headers['Content-Type'];
+  }
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
-    headers: {
-      ...getHeaders(),
-      ...(options.headers || {})
-    }
+    headers
   });
 
   return handleResponse(response);
@@ -100,6 +106,18 @@ const apiRequest = async (endpoint, options = {}) => {
 
 export const fetchStoreSettings = async () => {
   return apiRequest('/store');
+};
+
+// Admin profile
+export const fetchAdminProfile = async () => {
+  return apiRequest('/auth/me');
+};
+
+export const updateAdminProfile = async (profile) => {
+  return apiRequest('/auth/me', {
+    method: 'PUT',
+    body: JSON.stringify(profile),
+  });
 };
 
 export const updateStoreSettings = async (settings) => {
@@ -166,9 +184,6 @@ export const createProduct = async (formData) => {
 
   return apiRequest('/products', {
     method: 'POST',
-    headers: isFormData
-      ? { 'Content-Type': undefined }
-      : {},
     body: isFormData ? formData : JSON.stringify(formData)
   });
 };
@@ -178,9 +193,6 @@ export const updateProduct = async (id, formData) => {
 
   return apiRequest(`/products/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    headers: isFormData
-      ? { 'Content-Type': undefined }
-      : {},
     body: isFormData ? formData : JSON.stringify(formData)
   });
 };
@@ -211,8 +223,4 @@ export const loginAdmin = async (email, password) => {
   });
 
   return handleResponse(response);
-};
-
-export const fetchAdminProfile = async () => {
-  return apiRequest('/auth/me');
 };

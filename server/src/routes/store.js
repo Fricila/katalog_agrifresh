@@ -15,19 +15,20 @@ router.get('/', (req, res) => {
 
 // PUT update store settings (admin protected)
 router.put('/', authenticateToken, (req, res) => {
-    const { storeName, tagline, phone, address} = req.body;
+    const { storeName, tagline, phone, address } = req.body;
 
     const current = db.getSettings();
     const update = db.updateSettings({
-        storeName: storeName || current.storeName,
-        tagline: tagline || current.tagline,
-        phone: phone ? phone.replace(/[^0-9]/g,'') : current.phone,
-        address: address !== undefined ? address : current.address
+        storeName: storeName !== undefined ? storeName.trim() : current.storeName,
+        tagline: tagline !== undefined ? tagline.trim() : current.tagline,
+        phone: phone ? phone.replace(/[^0-9]/g, '') : current.phone,
+        address: address !== undefined ? address.trim() : current.address
     });
 
     res.json({
         success: true,
-        message: 'pengaturan toko berhasil disimpan'
+        message: 'Pengaturan toko berhasil disimpan',
+        data: update
     });
 });
 

@@ -20,7 +20,7 @@ export const ProductCard = ({
   const [quantity, setQuantity] = useState(1);
   const [isAddedFeedback, setIsAddedFeedback] = useState(false);
 
-  const isAvailable = product.stockStatus === 'Tersedia';
+  const isAvailable = (product.stockStatus || product.stock_status || '') === 'Tersedia';
 
   // Format Indonesian Rupiah
   const formatRupiah = (number) => {
@@ -28,20 +28,21 @@ export const ProductCard = ({
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0
-    }).format(number || 0);
+    }).format(Number(number) || 0);
   };
 
   // Safe fallback image for fresh grocery
   const fallbackImage = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80';
-  const hasValidImage = product.image && product.image !== '-' && product.image !== '_' && product.image.trim() !== '';
-  const displayImage = hasValidImage ? product.image : fallbackImage;
+  const hasValidImage = product.image && product.image !== '-' && product.image !== '_' && typeof product.image === 'string' && product.image.trim() !== '';
+  const cleanImage = hasValidImage && product.image.startsWith('uploads/') ? `/${product.image}` : product.image;
+  const displayImage = hasValidImage ? cleanImage : fallbackImage;
   const productName = product.name || product.Name || 'Produk Segar';
 
   // Derive unit (e.g. kg, ikat, bowl, porsi, sisir)
   const productUnit = product.unit || (
     product.categoryName === 'Sayuran' ? 'ikat' :
-    product.categoryName?.toLowerCase().includes('salad') ? 'bowl' :
-    product.name?.toLowerCase().includes('pisang') ? 'sisir' : 'kg'
+      product.categoryName?.toLowerCase().includes('salad') ? 'bowl' :
+        product.name?.toLowerCase().includes('pisang') ? 'sisir' : 'kg'
   );
 
   const handleQtyChange = (delta) => {
@@ -163,31 +164,33 @@ export const ProductCard = ({
             </button>
           </div>
 
-          {/* Add to Cart Button */}
-          <button
-            type="button"
-            className="btn-add-cart"
-            onClick={handleAdd}
-            disabled={!isAvailable}
-            title={isAvailable ? 'Tambahkan ke keranjang belanja' : 'Stok produk habis'}
-          >
-            <ShoppingBag size={16} />
-            <span>{isAddedFeedback ? '✓ Ditambahkan' : '+ Keranjang'}</span>
-          </button>
-
-          {/* Direct WhatsApp Order Icon Button */}
-          {onSelectProduct && (
+          {/* Action Buttons Group (Add to cart & Quick WA) */}
+          <div className="product-btn-group">
             <button
               type="button"
-              className="btn-quick-wa"
-              onClick={() => onSelectProduct(product)}
+              className="btn-add-cart"
+              onClick={handleAdd}
               disabled={!isAvailable}
-              title="Pesan instan via WhatsApp"
-              aria-label="Pesan via WhatsApp"
+              title={isAvailable ? 'Tambahkan ke keranjang belanja' : 'Stok produk habis'}
             >
-              <MessageCircle size={17} />
+              <ShoppingBag size={15} />
+              <span>{isAddedFeedback ? '✓ Ditambahkan' : '+ Keranjang'}</span>
             </button>
-          )}
+
+            {/* Direct WhatsApp Order Icon Button */}
+            {onSelectProduct && (
+              <button
+                type="button"
+                className="btn-quick-wa"
+                onClick={() => onSelectProduct(product)}
+                disabled={!isAvailable}
+                title="Pesan instan via WhatsApp"
+                aria-label="Pesan via WhatsApp"
+              >
+                <MessageCircle size={16} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

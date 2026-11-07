@@ -30,15 +30,28 @@ const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit 
     fileFilter: (req, file, cb) => {
-        const allowed = /jpeg|jpg|png|webp|gif/;
-        const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-        const mime = allowed.test(file.mimetype);
-        if (ext && mime) {
+        const isImageMime = file.mimetype && file.mimetype.startsWith('image/');
+        const isImageExt = /\.(jpe?g|png|webp|gif|bmp|jfif|svg)$/i.test(file.originalname);
+        if (isImageMime || isImageExt) {
             return cb(null, true);
         }
-        cb(new Error('formayt tidak didukung! Hanya gambar JPEG, PNG, WEBP'));
+        cb(new Error('Format file tidak didukung! Gunakan gambar JPG, JPEG, PNG, atau WEBP.'));
     }
 });
+
+const uploadSinglePhoto = (req, res, next) => {
+    upload.single('photo')(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ success: false, message: 'Ukuran foto maksimal 5MB!' });
+            }
+            return res.status(400).json({ success: false, message: `Upload gagal: ${err.message}` });
+        } else if (err) {
+            return res.status(400).json({ success: false, message: err.message });
+        }
+        next();
+    });
+};
 
 const router = express.Router();
 
@@ -64,7 +77,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST create product (admin protected)
-router.post('/', authenticateToken, upload.single('photo'), (req, res) => {
+router.post('/', authenticateToken, uploadSinglePhoto, (req, res) => {
     const { name, categoryId, price, stockStatus, description, imageUrl, unit } = req.body;
 
     if (!name || !name.trim()) {
@@ -73,7 +86,7 @@ router.post('/', authenticateToken, upload.single('photo'), (req, res) => {
     if (!categoryId) {
         return res.status(400).json({ success: false, message: 'Kategori produk wajib dipilih' });
     }
-    if (!price || isNaN(price) || Number(price) < 0) {
+    if (price === undefined || isNaN(price) || Number(price) < 0) {
         return res.status(400).json({ success: false, message: 'Harga produk harus angka positif' });
     }
 
@@ -100,7 +113,7 @@ router.post('/', authenticateToken, upload.single('photo'), (req, res) => {
 });
 
 // PUT update product (admin protected)
-router.put('/:id', authenticateToken, upload.single('photo'), (req, res) => {
+router.put('/:id', authenticateToken, uploadSinglePhoto, (req, res) => {
     const { id } = req.params;
     const { name, categoryId, price, stockStatus, description, imageUrl, unit } = req.body;
 
@@ -112,15 +125,13 @@ router.put('/:id', authenticateToken, upload.single('photo'), (req, res) => {
     const updatePayload = {};
     if (name !== undefined) updatePayload.name = name.trim();
     if (categoryId !== undefined) updatePayload.categoryId = categoryId;
-    if (price !== undefined) updatePayload.price = Number(price);
+    if (price !== undefined && !isNaN(price)) updatePayload.price = Number(price);
     if (stockStatus !== undefined) updatePayload.stockStatus = stockStatus;
     if (description !== undefined) updatePayload.description = description.trim();
     if (unit !== undefined) updatePayload.unit = unit.trim();
 
     if (req.file) {
         updatePayload.image = `/uploads/${req.file.filename}`;
-
-
     } else if (imageUrl !== undefined && imageUrl.trim()) {
         updatePayload.image = imageUrl.trim();
     }

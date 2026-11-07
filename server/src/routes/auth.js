@@ -84,6 +84,22 @@ router.get('/me', authenticateToken, (req, res) => {
     });
 });
 
+// Update admin profile (name, email, password)
+router.put('/me', authenticateToken, (req, res) => {
+    const { name, email, password } = req.body;
+    try {
+        const updated = db.updateAdmin({ name, email, password });
+        return res.json({
+            success: true,
+            message: 'Profil admin berhasil diperbarui',
+            user: { id: updated.id, name: updated.name, email: updated.email }
+        });
+    } catch (err) {
+        console.error('Update admin error:', err);
+        return res.status(500).json({ success: false, message: 'Gagal memperbarui profil' });
+    }
+});
+
 export default router;
 
 

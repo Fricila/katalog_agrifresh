@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Image as ImageIcon, Save, AlertCircle } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Save, AlertCircle, Check } from 'lucide-react';
 
 const PRESET_GROCERY_IMAGES = [
   { label: 'Pakcoy', url: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80' },
@@ -11,7 +11,7 @@ const PRESET_GROCERY_IMAGES = [
   { label: 'Salad', url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80' }
 ];
 
-export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, categories }) => {
+export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, categories = [] }) => {
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [price, setPrice] = useState('');
@@ -25,39 +25,55 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     if (editingProduct) {
-      setName(editingProduct.name || '');
-      setCategoryId(editingProduct.categoryId || (categories[0]?.id || ''));
-      setPrice(editingProduct.price ? String(editingProduct.price) : '');
+      setName(editingProduct.name || editingProduct.Name || '');
+      setCategoryId(editingProduct.categoryId || editingProduct.category_id || (categories[0]?.id || 'cat-1'));
+      setPrice(editingProduct.price !== undefined ? String(editingProduct.price) : '');
       setUnit(editingProduct.unit || 'kg');
-      setStockStatus(editingProduct.stockStatus || 'Tersedia');
+      setStockStatus(editingProduct.stockStatus || editingProduct.stock_status || 'Tersedia');
       setDescription(editingProduct.description || '');
-      setImageUrl(editingProduct.image || '');
-      setPreviewSrc(editingProduct.image || '');
+      const existingImg = editingProduct.image || editingProduct.imageUrl || '';
+      setImageUrl(existingImg);
+      setPreviewSrc(existingImg);
       setSelectedFile(null);
     } else {
       setName('');
-      setCategoryId(categories[0]?.id || '');
+      setCategoryId(categories[0]?.id || 'cat-1');
       setPrice('');
       setUnit('kg');
       setStockStatus('Tersedia');
       setDescription('');
-      setImageUrl(PRESET_GROCERY_IMAGES[0].url);
-      setPreviewSrc(PRESET_GROCERY_IMAGES[0].url);
+      const defaultImg = PRESET_GROCERY_IMAGES[0]?.url || '';
+      setImageUrl(defaultImg);
+      setPreviewSrc(defaultImg);
       setSelectedFile(null);
     }
     setErrorMsg('');
-  }, [editingProduct, categories, isOpen]);
+  }, [isOpen, editingProduct]);
 
   if (!isOpen) return null;
 
-  // Handle file picker
+  // Handle file picker from computer file explorer
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMsg('Ukuran file foto maksimal 5 MB.');
+        return;
+      }
       setSelectedFile(file);
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewSrc(objectUrl);
+      setErrorMsg('');
+
+      // Read file as Data URL (Base64) for instant, persistent client-side preview
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Url = event.target.result;
+        setPreviewSrc(base64Url);
+        setImageUrl(base64Url);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -92,11 +108,14 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
         payload = new FormData();
         payload.append('name', name.trim());
         payload.append('categoryId', categoryId);
-        payload.append('price', price);
+        payload.append('price', String(price));
         payload.append('unit', unit || 'kg');
         payload.append('stockStatus', stockStatus);
         payload.append('description', description.trim());
         payload.append('photo', selectedFile);
+        if (previewSrc) {
+          payload.append('imageUrl', previewSrc);
+        }
       } else {
         payload = {
           name: name.trim(),
@@ -131,7 +150,7 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
               {editingProduct ? 'Edit Informasi Produk' : 'Tambah Produk Baru'}
             </h2>
             <p className="modal-subtitle">
-              Lengkapi data sayur & buah segar untuk katalog AgriFresh
+              Lengkapi data sayur & buah segar untuk katalog toko
             </p>
           </div>
           <button className="btn-icon" onClick={onClose} title="Tutup">
@@ -152,7 +171,15 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
             <div className="product-form-media-section">
               <div className="media-preview-box">
                 {previewSrc ? (
-                  <img src={previewSrc} alt="Preview" className="media-preview-img" />
+                  <img
+                    src={previewSrc}
+                    alt="Preview"
+                    className="media-preview-img"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80';
+                    }}
+                  />
                 ) : (
                   <div className="media-placeholder">
                     <ImageIcon size={32} />
@@ -162,16 +189,62 @@ export const ProductFormModal = ({ isOpen, onClose, onSave, editingProduct, cate
               </div>
 
               <div className="media-controls">
-                <label className="btn btn-secondary btn-sm upload-file-btn">
+                <label
+                  htmlFor="product-file-picker"
+                  className="btn btn-secondary btn-sm upload-file-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
+                >
                   <Upload size={15} />
-                  <span>Upload Foto dari Perangkat</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    style={{ display: 'none' }}
-                  />
+                  <span>Upload Foto dari Komputer</span>
                 </label>
+                <input
+                  id="product-file-picker"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg,image/gif,image/*"
+                  onChange={handleFileChange}
+                  onClick={(e) => {
+                    e.target.value = null;
+                  }}
+                  style={{
+                    position: 'absolute',
+                    width: '1px',
+                    height: '1px',
+                    padding: 0,
+                    margin: '-1px',
+                    overflow: 'hidden',
+                    clip: 'rect(0, 0, 0, 0)',
+                    whiteSpace: 'nowrap',
+                    border: 0
+                  }}
+                />
+
+                {selectedFile && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem', fontSize: '0.82rem', color: '#059669', fontWeight: 600 }}>
+                    <Check size={14} />
+                    <span>File siap: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} KB)</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        const fallbackImg = editingProduct?.image || PRESET_GROCERY_IMAGES[0].url;
+                        setPreviewSrc(fallbackImg);
+                        setImageUrl(fallbackImg);
+                      }}
+                      style={{
+                        background: '#fee2e2',
+                        color: '#ef4444',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '1px 6px',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem'
+                      }}
+                      title="Batalkan file ini"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                )}
 
                 <div className="preset-images-row">
                   <span className="preset-label">Atau pilih sampel sayur & buah:</span>

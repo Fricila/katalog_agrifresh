@@ -86,7 +86,7 @@
             "image": "_",
             "createdAt": "2026-10-19T15:57:55.666Z"
         },
-    {
+        {
             "id": "proud-6",
             "name": "Paket Sayur Sop Toko Agri Fresh",
             "categoryId": "cat-1",
@@ -129,7 +129,6 @@
             "description": "Mangga harumanis dan legit tanpa pemanis.",
             "image": "_",
             "createdAt": "2026-10-19T15:57:55.666Z"
-        }  
-        
+        }
     ]
 }
